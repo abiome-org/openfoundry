@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION_FILE = ROOT / "factory/omf/_version.py"
-SOURCE_URL = "https://github.com/abiome-org/OpenModelFactory"
+VERSION_FILE = ROOT / "factory/openfoundry/_version.py"
+SOURCE_URL = "https://github.com/abiome-org/openfoundry"
 
 
 def _version() -> str:
@@ -70,7 +70,7 @@ def _run_build(destination: Path, source_date_epoch: int) -> list[Path]:
 
 
 def _build_reproducibly(destination: Path, source_date_epoch: int) -> list[Path]:
-    with tempfile.TemporaryDirectory(prefix="omf-release-build-") as temporary_name:
+    with tempfile.TemporaryDirectory(prefix="openfoundry-release-build-") as temporary_name:
         temporary = Path(temporary_name)
         first = _run_build(temporary / "first", source_date_epoch)
         second = _run_build(temporary / "second", source_date_epoch)
@@ -82,7 +82,7 @@ def _build_reproducibly(destination: Path, source_date_epoch: int) -> list[Path]
             if artifact.read_bytes() != second_by_name[name].read_bytes():
                 raise RuntimeError(f"distribution artifact is not reproducible: {name}")
             shutil.copyfile(artifact, destination / name)
-    return sorted(destination.glob("open_model_factory-*"))
+    return sorted(destination.glob("openfoundry-*"))
 
 
 def _spdx(version: str, artifacts: list[Path], created: str) -> dict[str, Any]:
@@ -123,9 +123,9 @@ def _spdx(version: str, artifacts: list[Path], created: str) -> dict[str, Any]:
         "spdxVersion": "SPDX-2.3",
         "dataLicense": "CC0-1.0",
         "SPDXID": "SPDXRef-DOCUMENT",
-        "name": f"open-model-factory-{version}",
-        "documentNamespace": f"https://omf.dev/spdx/distribution/{namespace}",
-        "creationInfo": {"created": created, "creators": [f"Tool: Open Model Factory {version}"]},
+        "name": f"openfoundry-{version}",
+        "documentNamespace": f"https://openfoundry.dev/spdx/distribution/{namespace}",
+        "creationInfo": {"created": created, "creators": [f"Tool: OpenFoundry {version}"]},
         "packages": [*distribution_packages, *dependencies],
         "relationships": [
             {
@@ -315,9 +315,9 @@ def prepare(arguments: argparse.Namespace) -> dict[str, Any]:
     )
     if vulnerability_report is None and not arguments.candidate:
         raise RuntimeError("a final release requires a vulnerability report")
-    signer = arguments.sign_command or os.environ.get("OMF_RELEASE_SIGN_COMMAND", "")
+    signer = arguments.sign_command or os.environ.get("OPENFOUNDRY_RELEASE_SIGN_COMMAND", "")
     if not signer and not arguments.candidate:
-        raise RuntimeError("a final release requires OMF_RELEASE_SIGN_COMMAND")
+        raise RuntimeError("a final release requires OPENFOUNDRY_RELEASE_SIGN_COMMAND")
     source_patch_digest = _verify_source(
         arguments.source_revision, version, candidate=arguments.candidate
     )
@@ -326,7 +326,7 @@ def prepare(arguments: argparse.Namespace) -> dict[str, Any]:
     )
 
     destination.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=f"omf-release-{destination.name}-"))
+    staging = Path(tempfile.mkdtemp(prefix=f"openfoundry-release-{destination.name}-"))
     try:
         artifacts = _build_reproducibly(staging, arguments.source_date_epoch)
         if _source_patch_digest() != source_patch_digest:
@@ -336,9 +336,9 @@ def prepare(arguments: argparse.Namespace) -> dict[str, Any]:
             .isoformat()
             .replace("+00:00", "Z")
         )
-        sbom_path = staging / f"open-model-factory-{version}.spdx.json"
+        sbom_path = staging / f"openfoundry-{version}.spdx.json"
         _write_json(sbom_path, _spdx(version, artifacts, created))
-        provenance_path = staging / f"open-model-factory-{version}.provenance.json"
+        provenance_path = staging / f"openfoundry-{version}.provenance.json"
         _write_json(
             provenance_path,
             _provenance(
@@ -352,7 +352,7 @@ def prepare(arguments: argparse.Namespace) -> dict[str, Any]:
         )
         inventoried = [*artifacts, sbom_path, provenance_path]
         if vulnerability_report is not None:
-            vulnerability_path = staging / f"open-model-factory-{version}.vulnerabilities.json"
+            vulnerability_path = staging / f"openfoundry-{version}.vulnerabilities.json"
             _write_json(vulnerability_path, vulnerability_report)
             inventoried.append(vulnerability_path)
         checksums = staging / "SHA256SUMS"

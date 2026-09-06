@@ -7,14 +7,14 @@ from pathlib import Path
 import pytest
 import yaml
 from fastapi.testclient import TestClient
-from omf.api import create_app
-from omf.candidate_review import review, write_review
-from omf.cli import app
-from omf.config import ProjectPaths
-from omf.errors import IntegrityError, OperationCanceled, ValidationError
-from omf.executors import LocalExecutor
-from omf.experiment_definition import initialize, read_definition
-from omf.factory import Factory
+from openfoundry.api import create_app
+from openfoundry.candidate_review import review, write_review
+from openfoundry.cli import app
+from openfoundry.config import ProjectPaths
+from openfoundry.errors import IntegrityError, OperationCanceled, ValidationError
+from openfoundry.executors import LocalExecutor
+from openfoundry.experiment_definition import initialize, read_definition
+from openfoundry.factory import Factory
 from typer.testing import CliRunner
 
 TRAIN = """import argparse, json, time
@@ -301,7 +301,7 @@ def test_controller_interruption_and_rights_change_do_not_prevent_cancellation(
         [
             sys.executable,
             "-m",
-            "omf.run_worker",
+            "openfoundry.run_worker",
             "--project",
             str(paths.root),
             "--operation",

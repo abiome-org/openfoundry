@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 
-from omf.sdk import ProtocolRequest, ProtocolResult, main
+from openfoundry.sdk import ProtocolRequest, ProtocolResult, main
 
 
 def validate(_request: ProtocolRequest) -> ProtocolResult:
@@ -30,7 +30,7 @@ def run(request: ProtocolRequest) -> ProtocolResult:
             "minimum": min(values),
             "maximum": max(values),
         }
-        output = Path(os.environ["OMF_RESULT_FILE"]).parent / "model.json"
+        output = Path(os.environ["OPENFOUNDRY_RESULT_FILE"]).parent / "model.json"
         output.write_text(json.dumps(model, sort_keys=True), encoding="utf-8")
         return ProtocolResult(
             status="ok",
@@ -44,7 +44,7 @@ def run(request: ProtocolRequest) -> ProtocolResult:
         error = abs(actual - expected)
         passed = error <= float(request.config.get("tolerance", 1e-12))
         report = {"passed": passed, "absoluteError": error, "expected": expected, "actual": actual}
-        output = Path(os.environ["OMF_RESULT_FILE"]).parent / "evaluation.json"
+        output = Path(os.environ["OPENFOUNDRY_RESULT_FILE"]).parent / "evaluation.json"
         output.write_text(json.dumps(report, sort_keys=True), encoding="utf-8")
         return ProtocolResult(
             status="ok",

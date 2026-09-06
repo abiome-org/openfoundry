@@ -2,7 +2,7 @@ import json
 import subprocess
 import sys
 
-from omf.sdk import ProtocolResult, dispatch
+from openfoundry.sdk import ProtocolResult, dispatch
 
 
 def test_protocol_dispatch_success_error_and_unsupported(tmp_path):
@@ -37,7 +37,7 @@ def test_protocol_dispatch_success_error_and_unsupported(tmp_path):
             sys.executable,
             "-c",
             (
-                "from omf.sdk import ProtocolResult, main\n"
+                "from openfoundry.sdk import ProtocolResult, main\n"
                 "raise SystemExit(main({'run': lambda _request: ProtocolResult(status='ok')}))"
             ),
             "--request",

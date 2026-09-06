@@ -1,5 +1,5 @@
-<!-- BEGIN OMF OPERATOR GUIDE -->
-# Operating this Open Model Factory
+<!-- BEGIN OpenFoundry OPERATOR GUIDE -->
+# Operating this OpenFoundry
 
 Build a useful model for the user's task. Read `MODEL_CARD.md` for purpose,
 interface, and measured targets. Use evaluation feedback to improve training
@@ -12,31 +12,31 @@ Respect actual policy and tool denials. Report an unresolved blocker clearly.
 
 ## Work with the factory
 
-Use `.venv/bin/omf` in an installed project. Global options precede subcommands.
+Use `.venv/bin/openfoundry` in an installed project. Global options precede subcommands.
 The local actor defaults to the configured project owner. `--project` selects
 that directory exactly; `--actor` explicitly selects an existing identity.
 
 ```sh
-omf agent context
-omf agent capabilities experiment.run
-omf experiment init --name my-model --objective "The user's task" --source src
+openfoundry agent context
+openfoundry agent capabilities experiment.run
+openfoundry experiment init --name my-model --objective "The user's task" --source src
 ```
 
 Edit `experiment.yaml` to name data, scripts, outputs, metrics, candidate
-parameters, and limits. Scripts need no OMF imports. Source capture respects
+parameters, and limits. Scripts need no OpenFoundry imports. Source capture respects
 Git ignores and archives uncommitted edits by default. Dependency locks live
 inside each script's source directory. Custom stage graphs can use modules,
 workloads, evaluation specs, and bindings directly.
 
 ```sh
-omf experiment run experiment.yaml --candidate baseline
-omf experiment run experiment.yaml --candidate candidate --detach
-omf experiment list
-omf experiment review <run-id> --baseline <baseline-id>
-omf experiment reproduce <run-id>
-omf experiment export <run-id> --to model
-omf release create <run-id> --name v1 --intended-use "The user's task"
-omf release promote v1 --alias candidate
+openfoundry experiment run experiment.yaml --candidate baseline
+openfoundry experiment run experiment.yaml --candidate candidate --detach
+openfoundry experiment list
+openfoundry experiment review <run-id> --baseline <baseline-id>
+openfoundry experiment reproduce <run-id>
+openfoundry experiment export <run-id> --to model
+openfoundry release create <run-id> --name v1 --intended-use "The user's task"
+openfoundry release promote v1 --alias candidate
 ```
 
 Inspect scores, regressions, changed examples, source/data revisions, and
@@ -44,15 +44,15 @@ measured compute. Use `--details` for full review evidence. When an evaluator
 changes, inspect the comparison and remeasure as needed. Update the model card
 with conclusions and the evidence behind them.
 
-After interruption, `omf operation reconcile <run-id>` resumes admitted work;
-`omf operation cancel <run-id> --reason "<reason>"` stops it. For alias moves
+After interruption, `openfoundry operation reconcile <run-id>` resumes admitted work;
+`openfoundry operation cancel <run-id> --reason "<reason>"` stops it. For alias moves
 and deployment rollback, use the observed version with `--expected-version`
 when protecting against concurrent changes. Refresh after a conflict.
 
 ## Preserve useful history
 
 Git holds source and configuration, artifact stores hold data and models, and
-`.omf/` holds generated runtime state. Use `omf admin backup` and verified
+`.openfoundry/` holds generated runtime state. Use `openfoundry admin backup` and verified
 restore for that state. Keep secrets and sensitive payloads out of Git, logs,
 and shared context; secret input supports a hidden prompt or `--value-stdin`.
 
@@ -65,4 +65,4 @@ output when used. No invented reviewer or report is needed to save a version.
 
 Unknown or unready executors fail before allocation. Report only capabilities,
 recovery behavior, and scale supported by observed tests.
-<!-- END OMF OPERATOR GUIDE -->
+<!-- END OpenFoundry OPERATOR GUIDE -->

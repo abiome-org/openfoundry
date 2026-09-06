@@ -1,7 +1,7 @@
-# Open Model Factory
+# OpenFoundry
 
-Open Model Factory runs model experiments from ordinary training and evaluation
-scripts. Define the task, candidates, metrics, and limits in one YAML file. OMF
+OpenFoundry runs model experiments from ordinary training and evaluation
+scripts. Define the task, candidates, metrics, and limits in one YAML file. OpenFoundry
 captures source and data, runs the work, compares results, and exports the model
 with its evidence. Your agent chooses what to try next.
 
@@ -24,24 +24,24 @@ and [model card](examples/text-classification/MODEL_CARD.md) describe the experi
 
 ## Bring your scripts
 
-Install OMF into your environment, then run from your model project:
+Install OpenFoundry into your environment, then run from your model project:
 
 ```sh
-omf experiment init --name my-model --objective "Improve useful task performance" --source src
+openfoundry experiment init --name my-model --objective "Improve useful task performance" --source src
 # Edit experiment.yaml to name your scripts, data, outputs, metrics, and candidates.
-omf experiment run experiment.yaml --candidate baseline
-omf experiment run experiment.yaml --candidate candidate --detach
-omf experiment list
-omf experiment status <run-id>
-omf experiment review <run-id> --baseline <baseline-id> --html review.html
-omf experiment reproduce <run-id>
-omf experiment export <run-id> --to model
+openfoundry experiment run experiment.yaml --candidate baseline
+openfoundry experiment run experiment.yaml --candidate candidate --detach
+openfoundry experiment list
+openfoundry experiment status <run-id>
+openfoundry experiment review <run-id> --baseline <baseline-id> --html review.html
+openfoundry experiment reproduce <run-id>
+openfoundry experiment export <run-id> --to model
 ```
 
 Commands are argument lists without a shell. Use `{inputs[name]}` for data or
 model paths, `{parameters[name]}` for candidate settings, and `{output}` for the
 output directory; double literal braces. Each script's optional `inputs` selects
-which datasets or training artifacts it receives. Scripts need no OMF imports.
+which datasets or training artifacts it receives. Scripts need no OpenFoundry imports.
 Evaluation writes a JSON object of finite numeric metrics and explicit boolean
 `passed` and `compatibilityPassed` checks. Optional examples are JSON records with
 stable `id`, `input`, `expected`, `prediction`, and numeric `score` fields.
@@ -53,26 +53,26 @@ binary requirements lock inside each script's source directory. Separate trainin
 and evaluation source directories when their code changes independently: changes
 to the evaluator's captured source, inputs, or protocol flag comparisons for review.
 Use results to improve training and selection; report reused evaluation data as
-development evidence. `omf experiment schema` exposes the full definition schema.
+development evidence. `openfoundry experiment schema` exposes the full definition schema.
 
-Runs survive agent sessions. Use `omf operation reconcile <run-id>` to resume and
-`omf operation cancel <run-id> --reason "Try another candidate"` to stop. Each stage
+Runs survive agent sessions. Use `openfoundry operation reconcile <run-id>` to resume and
+`openfoundry operation cancel <run-id> --reason "Try another candidate"` to stop. Each stage
 has a wall timeout; local CPU, memory, process, and file-size limits use POSIX
 process limits. Measured wall/CPU time is reported separately from configured
 limits. Monetary cost is currently unmeasured.
 
-For MLflow, install `open-model-factory[tracking]`, then run
-`omf experiment track <run-id> --uri sqlite:///tracking.db` or use your tracking
+For MLflow, install `openfoundry[tracking]`, then run
+`openfoundry experiment track <run-id> --uri sqlite:///tracking.db` or use your tracking
 server URI. Repeated exports reuse the same MLflow run. CLI and authenticated
-HTTP expose the same workflow; `omf agent capabilities experiment.run` describes it.
+HTTP expose the same workflow; `openfoundry agent capabilities experiment.run` describes it.
 
 ## Releases and deployment
 
 Save a named version, then select it when it meets your project's requirements:
 
 ```sh
-omf release create <run-id> --name v1 --intended-use "Classify incoming text"
-omf release promote v1 --alias candidate
+openfoundry release create <run-id> --name v1 --intended-use "Classify incoming text"
+openfoundry release promote v1 --alias candidate
 ```
 
 Releases preserve exact data, captured code, artifacts, and evaluation evidence.
@@ -83,8 +83,8 @@ evaluation by default; projects can configure additional checks. See
 `./install.sh /path/to/model-project` installs a runnable starter and operator
 guide. Existing files are preserved.
 
-OMF 2 supports the local lifecycle on CPython 3.11/3.12 on Linux x86-64 and
-the `omf.executor/v1` plugin contract. Only local execution is built in. Production
+OpenFoundry 2 supports the local lifecycle on CPython 3.11/3.12 on Linux x86-64 and
+the `openfoundry.executor/v1` plugin contract. Only local execution is built in. Production
 scale, cluster recovery, and full air-gap operation require deployment-specific
 evidence. See [operations](docs/operations.md) for installation and support policy.
 
@@ -102,7 +102,7 @@ evidence. See [operations](docs/operations.md) for installation and support poli
 | [Agent state](docs/agent-control.md) | Factory context and command discovery |
 | [Architecture](docs/architecture.md) | Code ownership and invariants |
 
-Git holds code and configuration. Artifact stores hold data and models. `.omf/`
+Git holds code and configuration. Artifact stores hold data and models. `.openfoundry/`
 holds untracked runtime state. For development, use `make check`,
 `make test TEST_ARGS='tests/test_experiments.py -q'`, and `make test-all`.
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md).

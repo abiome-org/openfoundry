@@ -6,10 +6,10 @@ to the admitted run and result. Evaluation may be failed or absent; saving a
 version preserves what happened.
 
 ```sh
-omf release create run/<run-id> --name v1 --intended-use "Classify incoming text"
-omf release show v1
-omf release promote v1 --alias candidate
-omf release list
+openfoundry release create run/<run-id> --name v1 --intended-use "Classify incoming text"
+openfoundry release show v1
+openfoundry release promote v1 --alias candidate
+openfoundry release list
 ```
 
 `release create --promote` combines saving and selection. Promotion and deployment
@@ -35,9 +35,9 @@ Launch and rollback recheck current requirements under dataset-rights locks.
 
 ## Optional vulnerability evidence
 
-`omf release evidence run/<run-id>` prints a report skeleton with the aggregate
+`openfoundry release evidence run/<run-id>` prints a report skeleton with the aggregate
 model and captured source digests. Populate it with actual scanner output and
-pass it to `release create --vulnerability-report <path>`. OMF imports the report;
+pass it to `release create --vulnerability-report <path>`. OpenFoundry imports the report;
 it does not perform a vulnerability scan. The report records scanner identity,
 database revision, a timestamp with timezone, subjects, findings, and waivers.
 Open high or critical findings block promotion unless their IDs are waived.
@@ -46,7 +46,7 @@ A supplied failing report blocks promotion even when scanning is optional.
 ## Deployments
 
 ```yaml
-apiVersion: omf.dev/v1alpha1
+apiVersion: openfoundry.dev/v1alpha1
 kind: DeploymentSpec
 metadata:
   name: affine-service
@@ -58,11 +58,11 @@ spec:
 ```
 
 ```sh
-omf --actor deployment-operator deploy deployments/affine-service.yaml
-omf deployment list
-omf deployment status affine-service
-omf deployment cancel affine-service
-omf deployment rollback affine-service --expected-version <status-version>
+openfoundry --actor deployment-operator deploy deployments/affine-service.yaml
+openfoundry deployment list
+openfoundry deployment status affine-service
+openfoundry deployment cancel affine-service
+openfoundry deployment rollback affine-service --expected-version <status-version>
 ```
 
 `deploy` verifies the release against current promotion requirements, applies

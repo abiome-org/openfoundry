@@ -3,22 +3,22 @@ import shutil
 import tarfile
 from pathlib import Path
 
-import omf.backups as backups_module
+import openfoundry.backups as backups_module
 import pytest
 import yaml
-from omf.artifacts import ArtifactBuilder
-from omf.backups import restore_backup
-from omf.config import ProjectPaths, bootstrap
-from omf.errors import ConflictError, IntegrityError, ValidationError
-from omf.factory import Factory
+from openfoundry.artifacts import ArtifactBuilder
+from openfoundry.backups import restore_backup
+from openfoundry.config import ProjectPaths, bootstrap
+from openfoundry.errors import ConflictError, IntegrityError, ValidationError
+from openfoundry.factory import Factory
 
 
 def _project(root: Path) -> ProjectPaths:
     root.mkdir()
-    (root / "omf.yaml").write_text(
+    (root / "openfoundry.yaml").write_text(
         yaml.safe_dump(
             {
-                "apiVersion": "omf.dev/v1alpha1",
+                "apiVersion": "openfoundry.dev/v1alpha1",
                 "kind": "Project",
                 "metadata": {"name": "backup-test", "namespace": "local/backup-test"},
                 "spec": {"owners": ["local-user"], "extensions": {}},
@@ -34,7 +34,7 @@ def _backup(tmp_path: Path) -> tuple[ProjectPaths, Path, str, str, list[str], li
     bootstrap(paths)
     data = paths.root / "numbers.jsonl"
     data.write_text('{"value": 1}\n{"value": 2}\n')
-    archive = tmp_path / "factory.omf-backup"
+    archive = tmp_path / "factory.openfoundry-backup"
     with Factory(paths) as factory:
         factory.add_data(
             data,
@@ -87,7 +87,7 @@ def test_complete_backup_restores_identity_secrets_metadata_and_artifacts(tmp_pa
 
 def test_restore_rejects_tampering_atomically(tmp_path):
     source, archive, _key_id, _token, _resources, _events = _backup(tmp_path)
-    tampered = tmp_path / "tampered.omf-backup"
+    tampered = tmp_path / "tampered.openfoundry-backup"
     contents = bytearray(archive.read_bytes())
     secret_key = source.secret_key.read_bytes()
     assert contents.count(secret_key) == 1
@@ -100,7 +100,7 @@ def test_restore_rejects_tampering_atomically(tmp_path):
         restore_backup(target, tampered)
 
     assert not target.state.exists()
-    assert not list(target.root.glob(".omf-restore-*"))
+    assert not list(target.root.glob(".openfoundry-restore-*"))
 
 
 def test_restore_checks_external_identity_and_refuses_existing_state(tmp_path):
@@ -111,7 +111,7 @@ def test_restore_checks_external_identity_and_refuses_existing_state(tmp_path):
     assert not target.state.exists()
 
     bootstrap(target)
-    with pytest.raises(ConflictError, match=r"requires \.omf to be absent"):
+    with pytest.raises(ConflictError, match=r"requires \.openfoundry to be absent"):
         restore_backup(target, archive)
 
 
@@ -132,7 +132,7 @@ def test_backup_creation_and_restore_share_the_manifest_size_limit(tmp_path, mon
     source, archive, _key_id, _token, _resources, _events = _backup(tmp_path)
     monkeypatch.setattr(backups_module, "_MAX_MANIFEST_BYTES", 1)
     with Factory(source) as factory:
-        oversized = tmp_path / "oversized.omf-backup"
+        oversized = tmp_path / "oversized.openfoundry-backup"
         with pytest.raises(ValidationError, match="manifest exceeds"):
             factory.backup(oversized)
         assert not oversized.exists()
@@ -144,7 +144,7 @@ def test_backup_creation_and_restore_share_the_manifest_size_limit(tmp_path, mon
 
 
 def test_restore_rejects_unsafe_archive_members(tmp_path):
-    archive = tmp_path / "unsafe.omf-backup"
+    archive = tmp_path / "unsafe.openfoundry-backup"
     with tarfile.open(archive, "w") as value:
         path = tmp_path / "payload"
         path.write_bytes(b"x")
@@ -156,13 +156,13 @@ def test_restore_rejects_unsafe_archive_members(tmp_path):
 
     assert not (tmp_path / "escape").exists()
     assert not target.state.exists()
-    assert not list(target.root.glob(".omf-restore-*"))
+    assert not list(target.root.glob(".openfoundry-restore-*"))
 
 
 def test_backup_refuses_store_symlinks_and_existing_destination(tmp_path):
     paths = _project(tmp_path / "source")
     bootstrap(paths)
-    archive = tmp_path / "existing.omf-backup"
+    archive = tmp_path / "existing.openfoundry-backup"
     archive.write_bytes(b"keep")
     with Factory(paths) as factory:
         with pytest.raises(ConflictError, match="already exists"):
@@ -173,4 +173,4 @@ def test_backup_refuses_store_symlinks_and_existing_destination(tmp_path):
         link = paths.store / "manifests" / "link"
         os.symlink(outside, link)
         with pytest.raises(IntegrityError, match="symbolic links"):
-            factory.backup(tmp_path / "symlink.omf-backup")
+            factory.backup(tmp_path / "symlink.openfoundry-backup")

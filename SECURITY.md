@@ -10,9 +10,9 @@ and disclosure timeline with the reporter.
 
 ## Security boundary
 
-OMF treats module, dataset, and release input as untrusted. Local
+OpenFoundry treats module, dataset, and release input as untrusted. Local
 process resource limits are defense-in-depth, not a VM-grade sandbox. Expose the
-HTTP API only behind site-managed TLS and identity controls. Never commit `.omf`,
+HTTP API only behind site-managed TLS and identity controls. Never commit `.openfoundry`,
 private keys, API tokens, cloud credentials, or data payloads.
 
 The newest `1.x` minor receives correctness and security fixes. The preceding

@@ -1,13 +1,13 @@
 # Modules
 
 A module is a directory with a `module.yaml` and an executable that speaks
-`omf.module/v1`. Trainers, evaluators, serving adapters, data transforms, and
-environments are all modules; OMF does not distinguish roles.
+`openfoundry.module/v1`. Trainers, evaluators, serving adapters, data transforms, and
+environments are all modules; OpenFoundry does not distinguish roles.
 
 ## Manifest
 
 ```yaml
-apiVersion: omf.dev/v1alpha1
+apiVersion: openfoundry.dev/v1alpha1
 kind: Module
 metadata:
   name: affine-regression
@@ -36,27 +36,27 @@ spec:
   `dependencyDigest` is its SHA-256. An empty lock runs the interpreter as it
   is. A non-empty lock is a hash-pinned `pip` requirements file; the local
   executor realizes it into a cached virtual environment under
-  `.omf/environments/` and layers the interpreter's own site directories after
-  it so `omf.sdk` stays importable.
+  `.openfoundry/environments/` and layers the interpreter's own site directories after
+  it so `openfoundry.sdk` stays importable.
 - `contracts` are self-contained JSON Schemas (no `$ref`) for the request
   inputs, config, and state and for the result outputs and state. A missing
   contract accepts any object.
 - `checkpoint: true` declares that the module may emit a `checkpoint` artifact.
-- `fixtures` are request and result pairs that `omf module test` executes. A
+- `fixtures` are request and result pairs that `openfoundry module test` executes. A
   module without fixtures is tested with one `validate` request that must
   return `status: ok`.
 
 ## Protocol
 
 The executor writes one request file and expects one result file. The paths
-arrive in the environment as `OMF_REQUEST_FILE` and `OMF_RESULT_FILE`;
-`OMF_RUN_ID` identifies the execution.
+arrive in the environment as `OPENFOUNDRY_REQUEST_FILE` and `OPENFOUNDRY_RESULT_FILE`;
+`OPENFOUNDRY_RUN_ID` identifies the execution.
 
 Request:
 
 ```json
 {
-  "protocol": "omf.module/v1",
+  "protocol": "openfoundry.module/v1",
   "operation": "run",
   "inputs": {"dataset": {"path": "/abs/stage/inputs/dataset", "manifestDigest": "sha256:..."}},
   "config": {"action": "train", "steps": 500},
@@ -78,7 +78,7 @@ Result:
 
 ```json
 {
-  "protocol": "omf.module/v1",
+  "protocol": "openfoundry.module/v1",
   "status": "ok",
   "outputs": {"loss": 0.000001, "modelState": {"slope": 2.0, "intercept": 1.0}},
   "state": {"slope": 2.0, "intercept": 1.0, "format": "json-affine/v1"},
@@ -100,7 +100,7 @@ non-empty state, and emit at most one checkpoint per stage.
 The Python SDK wraps the exchange:
 
 ```python
-from omf.sdk import ProtocolRequest, ProtocolResult, main
+from openfoundry.sdk import ProtocolRequest, ProtocolResult, main
 
 def run(request: ProtocolRequest) -> ProtocolResult:
     return ProtocolResult(status="ok", outputs={"echo": request.inputs})
@@ -116,9 +116,9 @@ exit non-zero on error. Modules run with network denied and only `PATH`,
 ## Commands
 
 ```sh
-omf module init modules/my-trainer --name my-trainer
-omf module validate modules/my-trainer/module.yaml
-omf module test modules/my-trainer/module.yaml --binding bindings/local.yaml
+openfoundry module init modules/my-trainer --name my-trainer
+openfoundry module validate modules/my-trainer/module.yaml
+openfoundry module test modules/my-trainer/module.yaml --binding bindings/local.yaml
 ```
 
 `init` scaffolds a manifest, an empty lock, and a `main.py` that echoes its
@@ -129,8 +129,8 @@ environment through the binding's executor and runs the fixtures.
 
 ## Source capture
 
-A run never executes the checkout directly. At admission OMF packages each
-stage's module directory (excluding `.git`, `.venv`, `.omf`, caches, and any
+A run never executes the checkout directly. At admission OpenFoundry packages each
+stage's module directory (excluding `.git`, `.venv`, `.openfoundry`, caches, and any
 `secrets` directory) into a content-addressed artifact, extracts that package
 into the run directory, and records the package digest, the module digest, and
 the environment digest in the `Run` resource. Changing the checkout after

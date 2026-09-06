@@ -9,7 +9,7 @@ from pathlib import Path
 def build_wheel(
     directory: Path,
     *,
-    name: str = "omftiny",
+    name: str = "openfoundrytiny",
     version: str = "1.0",
     source: str = 'VERSION = "1.0"\n',
 ) -> tuple[Path, str]:
@@ -20,7 +20,8 @@ def build_wheel(
             f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n".encode()
         ),
         f"{dist_info}/WHEEL": (
-            b"Wheel-Version: 1.0\nGenerator: omf-tests\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
+            b"Wheel-Version: 1.0\nGenerator: openfoundry-tests\nRoot-Is-Purelib: "
+            b"true\nTag: py3-none-any\n"
         ),
         f"{dist_info}/top_level.txt": f"{name}\n".encode(),
     }

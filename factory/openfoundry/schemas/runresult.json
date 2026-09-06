@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "x-openfoundry-kind": "RunResult",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "openfoundry.dev/v1alpha1"},
+    "kind": {"const": "RunResult"},
+    "metadata": {"$ref": "#/$defs/metadata"},
+    "spec": {
+      "type": "object",
+      "required": ["runRef", "outputs", "stages", "admission"],
+      "properties": {
+        "runRef": {"type": "string"},
+        "outputs": {"type": "object"},
+        "stages": {"type": "object"},
+        "admission": {"type": "object"},
+        "extensions": {"$ref": "#/$defs/extension"}
+      },
+      "additionalProperties": false
+    },
+    "status": {"type": "object"}
+  },
+  "additionalProperties": false
+}

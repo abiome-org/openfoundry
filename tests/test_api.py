@@ -2,17 +2,17 @@ import subprocess
 
 import yaml
 from fastapi.testclient import TestClient
-from omf.api import create_app
-from omf.config import ProjectPaths, bootstrap
-from omf.factory import Factory
+from openfoundry.api import create_app
+from openfoundry.config import ProjectPaths, bootstrap
+from openfoundry.factory import Factory
 
 
 def _paths(tmp_path):
     root = tmp_path / "project"
     root.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
-    (root / "omf.yaml").write_text(
-        """apiVersion: omf.dev/v1alpha1
+    (root / "openfoundry.yaml").write_text(
+        """apiVersion: openfoundry.dev/v1alpha1
 kind: Project
 metadata:
   name: api-test
@@ -33,7 +33,7 @@ def test_api_health_auth_schemas_resources_and_doctor(tmp_path):
     (paths.root / "bindings/local.yaml").write_text(
         yaml.safe_dump(
             {
-                "apiVersion": "omf.dev/v1alpha1",
+                "apiVersion": "openfoundry.dev/v1alpha1",
                 "kind": "Binding",
                 "metadata": {"name": "local", "namespace": "local/api-test"},
                 "spec": {"executor": "local", "resources": {}, "config": {}},
@@ -69,10 +69,10 @@ def test_api_health_auth_schemas_resources_and_doctor(tmp_path):
         assert "must-not-escape" not in escaped.text
         assert "Project" in client.get("/v1/schemas", headers=headers).json()["kinds"]
         resource = {
-            "apiVersion": "omf.dev/v1alpha1",
+            "apiVersion": "openfoundry.dev/v1alpha1",
             "kind": "ArtifactStore",
             "metadata": {"name": "second", "namespace": "local/api-test"},
-            "spec": {"storeType": "filesystem", "location": ".omf/second"},
+            "spec": {"storeType": "filesystem", "location": ".openfoundry/second"},
         }
         response = client.post("/v1/resources", headers=headers, json=resource)
         assert response.status_code == 200

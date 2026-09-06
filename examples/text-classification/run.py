@@ -7,10 +7,10 @@ import sys
 import time
 from pathlib import Path
 
-from omf.candidate_review import review, write_review
-from omf.config import ProjectPaths
-from omf.factory import Factory
-from omf.tracking import track
+from openfoundry.candidate_review import review, write_review
+from openfoundry.config import ProjectPaths
+from openfoundry.factory import Factory
+from openfoundry.tracking import track
 from prepare import prepare
 
 
@@ -23,7 +23,7 @@ def interrupted_run(factory, definition):
             [
                 sys.executable,
                 "-m",
-                "omf.run_worker",
+                "openfoundry.run_worker",
                 "--project",
                 str(factory.paths.root),
                 "--operation",

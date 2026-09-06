@@ -4,11 +4,11 @@ import json
 import os
 from pathlib import Path
 
-from omf.sdk import ProtocolRequest, ProtocolResult, main
+from openfoundry.sdk import ProtocolRequest, ProtocolResult, main
 
 
 def validate(_request: ProtocolRequest) -> ProtocolResult:
-    return ProtocolResult(status="ok", outputs={"protocol": "omf.module/v1"})
+    return ProtocolResult(status="ok", outputs={"protocol": "openfoundry.module/v1"})
 
 
 def run(request: ProtocolRequest) -> ProtocolResult:
@@ -35,7 +35,7 @@ def run(request: ProtocolRequest) -> ProtocolResult:
             for item in examples
         ) / len(examples)
         model = {"slope": slope, "intercept": intercept, "format": "json-affine/v1"}
-        model_path = Path(os.environ["OMF_RESULT_FILE"]).parent / "model.json"
+        model_path = Path(os.environ["OPENFOUNDRY_RESULT_FILE"]).parent / "model.json"
         model_path.write_text(json.dumps(model, sort_keys=True))
         return ProtocolResult(
             status="ok",
@@ -62,7 +62,7 @@ def run(request: ProtocolRequest) -> ProtocolResult:
 
 
 def checkpoint(request: ProtocolRequest) -> ProtocolResult:
-    output = Path(os.environ["OMF_RESULT_FILE"]).parent / "checkpoint.json"
+    output = Path(os.environ["OPENFOUNDRY_RESULT_FILE"]).parent / "checkpoint.json"
     output.write_text(json.dumps(request.state, sort_keys=True))
     return ProtocolResult(
         status="ok",

@@ -2,20 +2,20 @@ import subprocess
 from datetime import UTC, datetime
 
 import pytest
-from omf.agent import capability_catalog, initial_context
-from omf.api import create_app
-from omf.canonical import canonical_json
-from omf.config import ProjectPaths, bootstrap
-from omf.errors import ValidationError
-from omf.factory import Factory
+from openfoundry.agent import capability_catalog, initial_context
+from openfoundry.api import create_app
+from openfoundry.canonical import canonical_json
+from openfoundry.config import ProjectPaths, bootstrap
+from openfoundry.errors import ValidationError
+from openfoundry.factory import Factory
 
 
 def _project(tmp_path):
     root = tmp_path / "agent-project"
     root.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
-    (root / "omf.yaml").write_text(
-        """apiVersion: omf.dev/v1alpha1
+    (root / "openfoundry.yaml").write_text(
+        """apiVersion: openfoundry.dev/v1alpha1
 kind: Project
 metadata: {name: agent-test, namespace: local/agent-test}
 spec: {owners: [local-user], extensions: {}}
@@ -27,13 +27,13 @@ spec: {owners: [local-user], extensions: {}}
 def _event(factory, subject="probe"):
     return factory.events.append(
         type="Probe",
-        source="omf://local/agent-test",
+        source="openfoundry://local/agent-test",
         subject=subject,
         resource_uid="probe",
         revision="sha256:" + "a" * 64,
         actor="tester",
         data={},
-        dataschema="omf.dev/events/probe/v1",
+        dataschema="openfoundry.dev/events/probe/v1",
     )
 
 
@@ -84,7 +84,7 @@ def test_capability_catalog_covers_every_versioned_http_operation(tmp_path):
         if interface := action["interfaces"].get("http"):
             operation = openapi["paths"][interface["path"]][interface["method"].lower()]
             assert operation["operationId"] == action["action"]
-            assert operation["x-omf-action"]["requiredScope"] == action["requiredScope"]
+            assert operation["x-openfoundry-action"]["requiredScope"] == action["requiredScope"]
 
 
 def test_agent_boundaries_fail_closed_with_actionable_validation(tmp_path):
@@ -108,13 +108,13 @@ def test_context_is_bounded_deterministic_incremental_and_redacted(tmp_path):
         factory.operations.create("sensitive", {"token": "must-not-escape"})
         factory.events.append(
             type="SensitiveProbe",
-            source="omf://local/agent-test",
+            source="openfoundry://local/agent-test",
             subject="probe",
             resource_uid="probe",
             revision="sha256:" + "a" * 64,
             actor="tester",
             data={"prompt": "must-not-escape"},
-            dataschema="omf.dev/events/probe/v1",
+            dataschema="openfoundry.dev/events/probe/v1",
         )
         at_one = datetime(2026, 9, 1, 12, tzinfo=UTC)
         at_two = datetime(2026, 9, 1, 13, tzinfo=UTC)
@@ -163,13 +163,13 @@ def test_incremental_context_preserves_events_and_makes_progress_under_byte_pres
         for index in range(5):
             factory.events.append(
                 type="LargeEvent",
-                source="omf://local/agent-test",
+                source="openfoundry://local/agent-test",
                 subject=f"{index}-" + "x" * 6000,
                 resource_uid="probe",
                 revision="sha256:" + "a" * 64,
                 actor="tester",
                 data={},
-                dataschema="omf.dev/events/probe/v1",
+                dataschema="openfoundry.dev/events/probe/v1",
             )
         expected = [event.id for event in factory.events.window(limit=100, after=cursor).items]
         received = []

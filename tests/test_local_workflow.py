@@ -7,10 +7,10 @@ from pathlib import Path
 
 import yaml
 from _wheels import build_wheel, lock_for
-from omf.cli import app
-from omf.config import ProjectPaths
-from omf.experiment_definition import initialize
-from omf.factory import Factory
+from openfoundry.cli import app
+from openfoundry.config import ProjectPaths
+from openfoundry.experiment_definition import initialize
+from openfoundry.factory import Factory
 from test_experiments import project
 from typer.testing import CliRunner
 
@@ -47,21 +47,23 @@ def test_cli_uses_configured_owner_and_respects_explicit_project(tmp_path, monke
     nested.mkdir()
     explicit = runner.invoke(app, ["--project", str(nested), "--output", "json", "bootstrap"])
     assert explicit.exit_code == 1
-    assert "no omf.yaml in project directory" in explicit.stdout
+    assert "no openfoundry.yaml in project directory" in explicit.stdout
     monkeypatch.chdir(nested)
     discovered = runner.invoke(app, ["--output", "json", "data", "list"])
     assert discovered.exit_code == 0, discovered.output
 
 
-def test_installed_defaults_run_uncommitted_scripts_without_omf_in_worker(tmp_path, monkeypatch):
+def test_installed_defaults_run_uncommitted_scripts_without_openfoundry_in_worker(
+    tmp_path, monkeypatch
+):
     paths, definition = project(tmp_path)
     template = Path("templates/project/policies/default.yaml").read_text()
     (paths.root / "policies/local.yaml").write_text(
-        template.replace("__OMF_PROJECT_NAMESPACE__", "local/regression")
+        template.replace("__OPENFOUNDRY_PROJECT_NAMESPACE__", "local/regression")
     )
     wheelhouse = tmp_path / "wheels"
     _, digest = build_wheel(wheelhouse)
-    (paths.root / "src/requirements.lock").write_bytes(lock_for("omftiny", "1.0", digest))
+    (paths.root / "src/requirements.lock").write_bytes(lock_for("openfoundrytiny", "1.0", digest))
     recipe = yaml.safe_load(definition.read_text())
     for stage in ("train", "evaluate"):
         recipe[stage]["dependencies"] = "requirements.lock"
@@ -70,15 +72,15 @@ def test_installed_defaults_run_uncommitted_scripts_without_omf_in_worker(tmp_pa
     isolated = tmp_path / "python"
     venv.EnvBuilder(with_pip=False, symlinks=True).create(isolated)
     monkeypatch.setenv("PATH", f"{isolated / 'bin'}{os.pathsep}{os.environ['PATH']}")
-    missing_omf = subprocess.run(
-        [str(isolated / "bin/python3"), "-I", "-c", "import omf"], capture_output=True
+    missing_openfoundry = subprocess.run(
+        [str(isolated / "bin/python3"), "-I", "-c", "import openfoundry"], capture_output=True
     )
-    assert missing_omf.returncode != 0
+    assert missing_openfoundry.returncode != 0
     completed = subprocess.run(
         [
             sys.executable,
             "-m",
-            "omf",
+            "openfoundry",
             "--project",
             str(paths.root),
             "--output",

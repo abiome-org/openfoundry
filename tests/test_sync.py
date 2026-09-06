@@ -2,10 +2,10 @@ import hashlib
 import io
 
 import pytest
-from omf.artifacts import ArtifactBuilder
-from omf.errors import IntegrityError
-from omf.stores.filesystem import FilesystemStore
-from omf.sync import SyncEngine
+from openfoundry.artifacts import ArtifactBuilder
+from openfoundry.errors import IntegrityError
+from openfoundry.stores.filesystem import FilesystemStore
+from openfoundry.sync import SyncEngine
 
 
 def test_sync_plans_missing_content_and_preserves_identity(tmp_path):

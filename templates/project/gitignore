@@ -1,11 +1,11 @@
-# BEGIN OMF MANAGED IGNORE
-# OMF runtime, local environments, and ungoverned payload ingress
-.omf/
-.omf-venvs/
+# BEGIN OpenFoundry MANAGED IGNORE
+# OPENFOUNDRY runtime, local environments, and ungoverned payload ingress
+.openfoundry/
+.openfoundry-venvs/
 .venv
 .venv/
-.venv.omf-link-*
-.venv.omf-old-*/
+.venv.openfoundry-link-*
+.venv.openfoundry-old-*/
 data/payloads/
 data/incoming/
 
@@ -25,4 +25,10 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
-# END OMF MANAGED IGNORE
+
+# Keep pre-rebrand runtime data and managed environments out of Git.
+.omf/
+.omf-venvs/
+.venv.omf-link-*
+.venv.omf-old-*/
+# END OpenFoundry MANAGED IGNORE

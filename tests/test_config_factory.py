@@ -15,21 +15,21 @@ from pathlib import Path
 import httpx
 import pytest
 import yaml
-from omf.artifacts import ArtifactBuilder
-from omf.config import ProjectPaths, bootstrap
-from omf.database import AliasRepository
-from omf.errors import (
+from openfoundry.artifacts import ArtifactBuilder
+from openfoundry.config import ProjectPaths, bootstrap
+from openfoundry.database import AliasRepository
+from openfoundry.errors import (
     AuthorizationError,
     CapabilityError,
     ConfigurationError,
     ConflictError,
     IntegrityError,
     NotFoundError,
-    OMFError,
+    OpenFoundryError,
     ValidationError,
 )
-from omf.evaluation import EvaluationService
-from omf.executors import (
+from openfoundry.evaluation import EvaluationService
+from openfoundry.executors import (
     EXECUTOR_API_VERSION,
     MODULE_PROTOCOL_CAPABILITIES,
     ExecutionPlan,
@@ -38,22 +38,22 @@ from omf.executors import (
     ExecutorRegistry,
     LocalExecutor,
 )
-from omf.factory import Factory, _execution_plan_digest
-from omf.modules import load_manifest
-from omf.policy import PolicyDecision
-from omf.releases import promote_alias
-from omf.sdk import ProtocolRequest
-from omf.workloads import project_workload
+from openfoundry.factory import Factory, _execution_plan_digest
+from openfoundry.modules import load_manifest
+from openfoundry.policy import PolicyDecision
+from openfoundry.releases import promote_alias
+from openfoundry.sdk import ProtocolRequest
+from openfoundry.workloads import project_workload
 
 
 def _project(tmp_path: Path) -> ProjectPaths:
     root = tmp_path / "project"
     root.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
-    (root / "omf.yaml").write_text(
+    (root / "openfoundry.yaml").write_text(
         yaml.safe_dump(
             {
-                "apiVersion": "omf.dev/v1alpha1",
+                "apiVersion": "openfoundry.dev/v1alpha1",
                 "kind": "Project",
                 "metadata": {"name": "test-project", "namespace": "local/test-project"},
                 "spec": {"owners": ["local-user"], "extensions": {}},
@@ -111,7 +111,7 @@ def test_clean_clone_to_signed_release_and_edge_deployment(tmp_path):
     with Factory(paths) as factory:
         assert factory.doctor()["ready"]
         _add_numbers(factory, paths)
-        factory.add_store("secondary", driver="filesystem", endpoint=".omf/secondary-store")
+        factory.add_store("secondary", driver="filesystem", endpoint=".openfoundry/secondary-store")
         planned = factory.sync("dataset/example-numbers", destination="secondary", plan=True)
         assert planned["plan"]["bytes"] > 0
         assert factory.sync("dataset/example-numbers", destination="secondary")["committed"]
@@ -195,7 +195,7 @@ def test_clean_clone_to_signed_release_and_edge_deployment(tmp_path):
         assert any(edge["source"] == f"run:{run['runId']}" for edge in release_lineage)
         assert any(edge["source"].startswith("artifact:sha256:") for edge in release_lineage)
         deployment = {
-            "apiVersion": "omf.dev/v1alpha1",
+            "apiVersion": "openfoundry.dev/v1alpha1",
             "kind": "DeploymentSpec",
             "metadata": {"name": "edge-demo", "namespace": "local/test-project"},
             "spec": {
@@ -332,13 +332,13 @@ def test_injected_executor_runs_unchanged_workload(paths):
 
 def test_stable_executor_plugin_acceptance(tmp_path, monkeypatch):
     site = tmp_path / "site"
-    info = site / "omf_stable_executor_test_plugin-1.0.0.dist-info"
+    info = site / "openfoundry_stable_executor_test_plugin-1.0.0.dist-info"
     info.mkdir(parents=True)
     (info / "METADATA").write_text(
-        "Metadata-Version: 2.1\nName: omf-stable-executor-test-plugin\nVersion: 1.0.0\n"
+        "Metadata-Version: 2.1\nName: openfoundry-stable-executor-test-plugin\nVersion: 1.0.0\n"
     )
     (info / "entry_points.txt").write_text(
-        "[omf.executors]\nstable-test = omf_stable_executor:provider\n"
+        "[openfoundry.executors]\nstable-test = openfoundry_stable_executor:provider\n"
     )
     monkeypatch.syspath_prepend(str(site))
     monkeypatch.syspath_prepend(str(Path("tests/fixtures/executor_plugin/src").resolve()))
@@ -346,13 +346,13 @@ def test_stable_executor_plugin_acceptance(tmp_path, monkeypatch):
     registry.discover()
     assert registry.catalog() == {
         "apiVersion": EXECUTOR_API_VERSION,
-        "entryPointGroup": "omf.executors",
+        "entryPointGroup": "openfoundry.executors",
         "providers": [
             {
                 "name": "stable-test",
                 "apiVersion": EXECUTOR_API_VERSION,
                 "source": (
-                    "entry-point:omf-stable-executor-test-plugin:omf_stable_executor:provider"
+                    "entry-point:openfoundry-stable-executor-test-plugin:openfoundry_stable_executor:provider"
                 ),
                 "description": "Independent acceptance-test executor.",
                 "capabilities": sorted(
@@ -374,7 +374,7 @@ def test_stable_executor_plugin_acceptance(tmp_path, monkeypatch):
         registry.resolve(
             "local",
             project_root=tmp_path,
-            state_root=tmp_path / ".omf",
+            state_root=tmp_path / ".openfoundry",
             actor="tester",
             declaration={},
         )
@@ -697,8 +697,8 @@ def test_module_test_executes_inside_symlink_virtual_environment(paths, tmp_path
         f"EXPECTED = {str(environment_path)!r}\n"
         "if sys.prefix != EXPECTED:\n"
         "    raise SystemExit(f'wrong interpreter environment: {sys.prefix}')\n"
-        "with open(os.environ['OMF_RESULT_FILE'], 'w') as stream:\n"
-        "    json.dump({'protocol': 'omf.module/v1', 'status': 'ok'}, stream)\n"
+        "with open(os.environ['OPENFOUNDRY_RESULT_FILE'], 'w') as stream:\n"
+        "    json.dump({'protocol': 'openfoundry.module/v1', 'status': 'ok'}, stream)\n"
     )
     monkeypatch.setenv("PATH", f"{environment_path / 'bin'}{os.pathsep}{os.environ['PATH']}")
 
@@ -715,7 +715,7 @@ def test_run_realizes_module_dependency_lock_from_binding_wheelhouse(tmp_path):
     bootstrap(paths)
     wheelhouse = paths.root / "wheels"
     _wheel, wheel_digest = build_wheel(wheelhouse)
-    lock = lock_for("omftiny", "1.0", wheel_digest)
+    lock = lock_for("openfoundrytiny", "1.0", wheel_digest)
     module_dir = paths.root / "modules/locked"
     shutil.copytree(paths.root / "modules/examples/statistical", module_dir)
     (module_dir / "requirements.lock").write_bytes(lock)
@@ -727,12 +727,13 @@ def test_run_realizes_module_dependency_lock_from_binding_wheelhouse(tmp_path):
     manifest["spec"]["extensions"] = {"sourceRef": "repository:modules/locked"}
     (module_dir / "module.yaml").write_text(yaml.safe_dump(manifest))
     (module_dir / "main.py").write_text(
-        "import omftiny\n"
-        "from omf.sdk import ProtocolResult, main\n"
+        "import openfoundrytiny\n"
+        "from openfoundry.sdk import ProtocolResult, main\n"
         "def validate(_request):\n"
         "    return ProtocolResult(status='ok')\n"
         "def run(_request):\n"
-        "    return ProtocolResult(status='ok', outputs={'omftiny': omftiny.VERSION})\n"
+        "    return ProtocolResult(status='ok', "
+        "outputs={'openfoundrytiny': openfoundrytiny.VERSION})\n"
         "if __name__ == '__main__':\n"
         "    raise SystemExit(main({'validate': validate, 'run': run}))\n"
     )
@@ -747,7 +748,7 @@ def test_run_realizes_module_dependency_lock_from_binding_wheelhouse(tmp_path):
     workload_path.write_text(
         yaml.safe_dump(
             {
-                "apiVersion": "omf.dev/v1alpha1",
+                "apiVersion": "openfoundry.dev/v1alpha1",
                 "kind": "WorkloadSpec",
                 "metadata": {"name": "locked", "namespace": "local/test-project"},
                 "spec": {
@@ -757,7 +758,7 @@ def test_run_realizes_module_dependency_lock_from_binding_wheelhouse(tmp_path):
                                 "name": "train",
                                 "module": "modules/locked/module.yaml",
                                 "operation": "run",
-                                "outputs": ["omftiny"],
+                                "outputs": ["openfoundrytiny"],
                             }
                         ]
                     },
@@ -773,11 +774,11 @@ def test_run_realizes_module_dependency_lock_from_binding_wheelhouse(tmp_path):
 
     assert tested["passed"] == 1
     assert result["state"] == "Succeeded"
-    assert result["outputs"]["train.omftiny"] == "1.0"
+    assert result["outputs"]["train.openfoundrytiny"] == "1.0"
     realization = admission["environments"]["train"]["realization"]
     assert realization["strategy"] == "venv"
     assert realization["options"] == {"index": False, "wheelhouse": str(wheelhouse)}
-    assert len(list(paths.environments.glob("*/omf-environment.json"))) == 1
+    assert len(list(paths.environments.glob("*/openfoundry-environment.json"))) == 1
 
 
 def _scan_for(paths: ProjectPaths, factory: Factory, run: dict) -> Path:
@@ -850,7 +851,7 @@ def test_alias_promotion_moves_between_releases(paths):
 
 def _committed_policy_project(tmp_path: Path, *, dirty_worktree: str = "deny") -> ProjectPaths:
     paths = _project(tmp_path)
-    (paths.root / ".gitignore").write_text(".omf/\n")
+    (paths.root / ".gitignore").write_text(".openfoundry/\n")
     (paths.root / "policies").mkdir()
     policy = yaml.safe_load(Path("policies/default.yaml").read_text())
     policy["metadata"]["namespace"] = "local/test-project"
@@ -995,7 +996,7 @@ def test_service_deployment_serves_release_through_admitted_adapter(tmp_path, di
         deployment_path.write_text(
             yaml.safe_dump(
                 {
-                    "apiVersion": "omf.dev/v1alpha1",
+                    "apiVersion": "openfoundry.dev/v1alpha1",
                     "kind": "DeploymentSpec",
                     "metadata": {"name": "affine-service", "namespace": "local/test-project"},
                     "spec": {
@@ -1096,7 +1097,7 @@ def test_reference_inputs_pin_prior_release_checkpoint_and_artifact(tmp_path, ba
     (probe / "module.yaml").write_text(yaml.safe_dump(manifest))
     (probe / "main.py").write_text(
         "import os\n"
-        "from omf.sdk import ProtocolResult, main\n"
+        "from openfoundry.sdk import ProtocolResult, main\n"
         "def validate(_request):\n"
         "    return ProtocolResult(status='ok')\n"
         "def run(request):\n"
@@ -1118,7 +1119,7 @@ def test_reference_inputs_pin_prior_release_checkpoint_and_artifact(tmp_path, ba
         path.write_text(
             yaml.safe_dump(
                 {
-                    "apiVersion": "omf.dev/v1alpha1",
+                    "apiVersion": "openfoundry.dev/v1alpha1",
                     "kind": "WorkloadSpec",
                     "metadata": {"name": "refine", "namespace": "local/test-project"},
                     "spec": {
@@ -1673,7 +1674,7 @@ def test_model_package_admission_rejects_adapter_and_vector_drift(paths):
 
     with Factory(paths) as factory:
         with pytest.raises(IntegrityError, match="does not match the workload"):
-            factory._pin_model_package(None, stages, "omf://stale/model-package")
+            factory._pin_model_package(None, stages, "openfoundry://stale/model-package")
         assert factory._pin_model_package(None, stages) is None
         with pytest.raises(ValidationError, match="modelpackage/<name>"):
             factory._pin_model_package("modelpackage/example@sha256:stale", stages)
@@ -1827,7 +1828,7 @@ def test_experiment_rejects_different_evaluation_revisions(paths):
     with Factory(paths) as factory:
         baseline = factory.apply_resource(
             {
-                "apiVersion": "omf.dev/v1alpha1",
+                "apiVersion": "openfoundry.dev/v1alpha1",
                 "kind": "EvaluationResult",
                 "metadata": {"name": "baseline", "namespace": "local/test-project"},
                 "spec": {
@@ -1836,14 +1837,16 @@ def test_experiment_rejects_different_evaluation_revisions(paths):
                     "provenance": {},
                     "uncertainty": {},
                     "failures": [],
-                    "extensions": {"evaluationRefs": ["omf://test/evaluationspec/a@sha256:a"]},
+                    "extensions": {
+                        "evaluationRefs": ["openfoundry://test/evaluationspec/a@sha256:a"]
+                    },
                 },
             },
             _system=True,
         )
         candidate = factory.apply_resource(
             {
-                "apiVersion": "omf.dev/v1alpha1",
+                "apiVersion": "openfoundry.dev/v1alpha1",
                 "kind": "EvaluationResult",
                 "metadata": {"name": "candidate", "namespace": "local/test-project"},
                 "spec": {
@@ -1852,7 +1855,9 @@ def test_experiment_rejects_different_evaluation_revisions(paths):
                     "provenance": {},
                     "uncertainty": {},
                     "failures": [],
-                    "extensions": {"evaluationRefs": ["omf://test/evaluationspec/b@sha256:b"]},
+                    "extensions": {
+                        "evaluationRefs": ["openfoundry://test/evaluationspec/b@sha256:b"]
+                    },
                 },
             },
             _system=True,
@@ -2187,7 +2192,7 @@ def test_module_failure_exposes_only_bounded_log_tails(paths):
     with Factory(paths) as factory:
         executor = LocalExecutor()
         environment = factory._prepare_module_environment(executor, manifest, code_root)
-        with pytest.raises(OMFError) as raised:
+        with pytest.raises(OpenFoundryError) as raised:
             factory._execute_module(
                 manifest,
                 code_root,
@@ -2508,7 +2513,7 @@ def test_release_preservation_and_selection_use_current_requirements(paths):
         (policy_dir / "default.yaml").write_text(
             yaml.safe_dump(
                 {
-                    "apiVersion": "omf.dev/v1alpha1",
+                    "apiVersion": "openfoundry.dev/v1alpha1",
                     "kind": "Policy",
                     "metadata": {"name": "default"},
                     "spec": {
@@ -2550,7 +2555,7 @@ def test_release_preservation_and_selection_use_current_requirements(paths):
         selected_path.write_text(
             yaml.safe_dump(
                 {
-                    "apiVersion": "omf.dev/v1alpha1",
+                    "apiVersion": "openfoundry.dev/v1alpha1",
                     "kind": "DeploymentSpec",
                     "metadata": {"name": "selected"},
                     "spec": {"releaseRef": "alias/candidate", "extensions": {"form": "edge"}},
@@ -2576,7 +2581,7 @@ def test_release_preservation_and_selection_use_current_requirements(paths):
         deployment.write_text(
             yaml.safe_dump(
                 {
-                    "apiVersion": "omf.dev/v1alpha1",
+                    "apiVersion": "openfoundry.dev/v1alpha1",
                     "kind": "DeploymentSpec",
                     "metadata": {"name": "revoked"},
                     "spec": {"releaseRef": "release/measured", "extensions": {"form": "edge"}},

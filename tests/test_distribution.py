@@ -10,7 +10,7 @@ import zipfile
 from email.parser import BytesParser
 from pathlib import Path
 
-import omf.database as database_module
+import openfoundry.database as database_module
 from _environments import create_environment
 
 SOURCE_DATE_EPOCH = "1700000000"
@@ -31,7 +31,7 @@ def _run(command, *, cwd=None, env=None, timeout=120):
 
 
 def _environment(path: Path) -> tuple[Path, Path]:
-    return create_environment(path), path / "bin/omf"
+    return create_environment(path), path / "bin/openfoundry"
 
 
 def test_release_bundle_and_candidate_install_upgrade_backup_restore(tmp_path):
@@ -86,11 +86,11 @@ source.with_name(source.name + ".sig").write_text(hashlib.sha256(source.read_byt
         "version": "2.0.0",
         "reproducible": True,
         "artifacts": [
-            "open_model_factory-2.0.0-py3-none-any.whl",
-            "open_model_factory-2.0.0.tar.gz",
+            "openfoundry-2.0.0-py3-none-any.whl",
+            "openfoundry-2.0.0.tar.gz",
         ],
-        "sbom": "open-model-factory-2.0.0.spdx.json",
-        "provenance": "open-model-factory-2.0.0.provenance.json",
+        "sbom": "openfoundry-2.0.0.spdx.json",
+        "provenance": "openfoundry-2.0.0.provenance.json",
         "checksums": "SHA256SUMS",
         "signature": "SHA256SUMS.sig",
     }
@@ -115,13 +115,13 @@ source.with_name(source.name + ".sig").write_text(hashlib.sha256(source.read_byt
         "gitCommit": revision
     }
     assert provenance["predicate"]["runDetails"]["builder"]["id"] == (
-        f"https://github.com/abiome-org/OpenModelFactory/blob/{revision}/tools/release.py"
+        f"https://github.com/abiome-org/openfoundry/blob/{revision}/tools/release.py"
     )
     source_patch = provenance["predicate"]["buildDefinition"]["externalParameters"]["sourcePatch"]
     assert set(source_patch) == {"sha256"}
     assert len(source_patch["sha256"]) == 64
 
-    wheel = distribution / "open_model_factory-2.0.0-py3-none-any.whl"
+    wheel = distribution / "openfoundry-2.0.0-py3-none-any.whl"
     with zipfile.ZipFile(wheel) as archive:
         metadata_name = next(
             name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
@@ -132,7 +132,7 @@ source.with_name(source.name + ".sig").write_text(hashlib.sha256(source.read_byt
 
     isolated = tmp_path / "isolated"
     isolated.mkdir()
-    python, omf_command = _environment(tmp_path / "wheel-environment")
+    python, openfoundry_command = _environment(tmp_path / "wheel-environment")
     environment = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"} | {
         "PIP_NO_INDEX": "1"
     }
@@ -143,8 +143,8 @@ source.with_name(source.name + ".sig").write_text(hashlib.sha256(source.read_byt
     )
     _run([python, "-m", "pip", "check"], cwd=isolated, env=environment)
     installed_probe = (
-        "import json,omf,pathlib,sys; print(json.dumps({'version':omf.__version__, "
-        "'isolated':pathlib.Path(omf.__file__).resolve().is_relative_to("
+        "import json,openfoundry,pathlib,sys; print(json.dumps({'version':openfoundry.__version__, "
+        "'isolated':pathlib.Path(openfoundry.__file__).resolve().is_relative_to("
         "pathlib.Path(sys.prefix).resolve())}))"
     )
     installed = _run(
@@ -161,46 +161,55 @@ source.with_name(source.name + ".sig").write_text(hashlib.sha256(source.read_byt
 
     project = tmp_path / "candidate-project"
     project.mkdir()
-    (project / "omf.yaml").write_text(
-        """apiVersion: omf.dev/v1alpha1
+    (project / "openfoundry.yaml").write_text(
+        """apiVersion: openfoundry.dev/v1alpha1
 kind: Project
 metadata: {name: candidate, namespace: local/candidate}
 spec: {owners: [release-test], extensions: {}}
 """
     )
     _run(["git", "init", "-q"], cwd=project)
-    _run(["git", "config", "user.name", "OMF distribution test"], cwd=project)
-    _run(["git", "config", "user.email", "distribution-test@omf.invalid"], cwd=project)
-    _run(["git", "add", "omf.yaml"], cwd=project)
+    _run(["git", "config", "user.name", "OpenFoundry distribution test"], cwd=project)
+    _run(["git", "config", "user.email", "distribution-test@openfoundry.invalid"], cwd=project)
+    _run(["git", "add", "openfoundry.yaml"], cwd=project)
     _run(["git", "commit", "-qm", "Initialize candidate project"], cwd=project)
     bootstrap = _run(
-        [omf_command, "--project", project, "--output", "json", "bootstrap"],
+        [openfoundry_command, "--project", project, "--output", "json", "bootstrap"],
         cwd=isolated,
         env=environment,
     )
     assert json.loads(bootstrap.stdout)["ready"]
     assert json.loads(
         _run(
-            [omf_command, "--project", project, "--output", "json", "doctor"],
+            [openfoundry_command, "--project", project, "--output", "json", "doctor"],
             cwd=isolated,
             env=environment,
         ).stdout
     )["ready"]
-    backup = tmp_path / "candidate.omf-backup"
+    backup = tmp_path / "candidate.openfoundry-backup"
     backup_report = json.loads(
         _run(
-            [omf_command, "--project", project, "--output", "json", "admin", "backup", backup],
+            [
+                openfoundry_command,
+                "--project",
+                project,
+                "--output",
+                "json",
+                "admin",
+                "backup",
+                backup,
+            ],
             cwd=isolated,
             env=environment,
         ).stdout
     )
     restored = tmp_path / "restored-project"
     restored.mkdir()
-    shutil.copy2(project / "omf.yaml", restored / "omf.yaml")
+    shutil.copy2(project / "openfoundry.yaml", restored / "openfoundry.yaml")
     restore_report = json.loads(
         _run(
             [
-                omf_command,
+                openfoundry_command,
                 "--project",
                 restored,
                 "--output",
@@ -227,7 +236,7 @@ spec: {owners: [release-test], extensions: {}}
     )
     connection.close()
     upgrade_probe = (
-        "from omf.database import Database; import sys; db=Database(sys.argv[1]); "
+        "from openfoundry.database import Database; import sys; db=Database(sys.argv[1]); "
         "print(db.connection.execute('select max(version) from schema_migrations')"
         ".fetchone()[0]); db.close()"
     )
@@ -244,7 +253,7 @@ spec: {owners: [release-test], extensions: {}}
     )
     assert upgraded.stdout.strip() == "6"
 
-    sdist = distribution / "open_model_factory-2.0.0.tar.gz"
+    sdist = distribution / "openfoundry-2.0.0.tar.gz"
     with tarfile.open(sdist, "r:gz") as archive:
         members = {item.name.split("/", 1)[1] for item in archive if "/" in item.name}
     assert {"README.md", "CHANGELOG.md", "docs/walkthrough.md", "install.sh"} <= members
@@ -266,7 +275,7 @@ spec: {owners: [release-test], extensions: {}}
     _run([sdist_python, "-m", "pip", "check"], cwd=isolated, env=environment)
     assert (
         _run(
-            [sdist_python, "-I", "-c", "import omf; print(omf.__version__)"],
+            [sdist_python, "-I", "-c", "import openfoundry; print(openfoundry.__version__)"],
             cwd=isolated,
             env=environment,
         ).stdout.strip()

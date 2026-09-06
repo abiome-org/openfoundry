@@ -1,8 +1,8 @@
 import uuid
 
 import pytest
-from omf.errors import ValidationError
-from omf.ids import parse_digest, uuid7, validate_uuid7
+from openfoundry.errors import ValidationError
+from openfoundry.ids import parse_digest, uuid7, validate_uuid7
 
 
 def test_uuid7_is_valid_and_monotonic():

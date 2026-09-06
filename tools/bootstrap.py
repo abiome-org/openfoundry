@@ -29,7 +29,9 @@ def select_python(requested: str | None) -> Path:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create OMF's locked development environment.")
+    parser = argparse.ArgumentParser(
+        description="Create OpenFoundry's locked development environment."
+    )
     parser.add_argument("--python", help="Python 3.11 or 3.12 executable")
     args = parser.parse_args()
     environment = ROOT / ".venv"

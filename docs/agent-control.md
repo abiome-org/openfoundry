@@ -1,15 +1,15 @@
 # Factory state for agents
 
-`omf agent context` reports readiness, resource inventory, runs, deployments,
+`openfoundry agent context` reports readiness, resource inventory, runs, deployments,
 operations, and recent event metadata. It works before bootstrap and includes
 an initialization plan when local state is missing. Your agent owns the task
 and decides what to do with these facts.
 
 ```sh
-omf --output json agent context --limit 10 --max-bytes 16384
-omf --output json agent context --since <event-id> --focus <run-id>
-omf agent capabilities experiment.run
-omf agent capabilities release.promote
+openfoundry --output json agent context --limit 10 --max-bytes 16384
+openfoundry --output json agent context --since <event-id> --focus <run-id>
+openfoundry agent capabilities experiment.run
+openfoundry agent capabilities release.promote
 ```
 
 Context omits operation requests, results, errors, and event payloads. Focus
@@ -28,6 +28,6 @@ routing, scope checks, and OpenAPI consume these same definitions. Use a
 command's `--help` or OpenAPI for its input schema. Ordinary errors include
 `code`, `message`, `retryable`, and, when relevant, `details` and `remediation`.
 
-OMF does not store agent goals or generic knowledge, prescribe next actions,
+OpenFoundry does not store agent goals or generic knowledge, prescribe next actions,
 or assign static approval labels. Task management belongs to the agent's host;
 model evidence belongs to runs, evaluations, comparisons, and releases.

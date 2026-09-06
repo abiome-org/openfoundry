@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "x-openfoundry-kind": "Binding",
+  "type": "object",
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "openfoundry.dev/v1alpha1"
+    },
+    "kind": {
+      "const": "Binding"
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "spec": {
+      "type": "object",
+      "required": [
+        "executor"
+      ],
+      "properties": {
+        "executor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "cpuSeconds": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "addressSpaceBytes": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "processes": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "fileSizeBytes": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "timeoutSeconds": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "additionalProperties": false
+        },
+        "config": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

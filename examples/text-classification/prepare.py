@@ -9,7 +9,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from omf.experiment_definition import initialize
+from openfoundry.experiment_definition import initialize
 
 URL = "https://archive.ics.uci.edu/static/public/228/sms%2Bspam%2Bcollection.zip"
 SHA256 = "1587ea43e58e82b14ff1f5425c88e17f8496bfcdb67a583dbff9eefaf9963ce3"

@@ -1,8 +1,0 @@
-apiVersion: omf.dev/v1alpha1
-kind: Project
-metadata:
-  name: __OMF_PROJECT_NAME__
-  namespace: __OMF_PROJECT_NAMESPACE__
-spec:
-  owners:
-    - local-user

@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from omf.serve_worker import ServingConfig, create_app
+from openfoundry.serve_worker import ServingConfig, create_app
 
 SIGNATURES = {
     "input": {
@@ -17,25 +17,25 @@ SIGNATURES = {
 }
 OK_SCRIPT = (
     "import json, os\n"
-    "request = json.load(open(os.environ['OMF_REQUEST_FILE']))\n"
+    "request = json.load(open(os.environ['OPENFOUNDRY_REQUEST_FILE']))\n"
     "prediction = request['state']['slope'] * request['inputs']['input']\n"
     "prediction += request['state']['intercept']\n"
-    "json.dump({'protocol': 'omf.module/v1', 'status': 'ok',\n"
+    "json.dump({'protocol': 'openfoundry.module/v1', 'status': 'ok',\n"
     "           'outputs': {'prediction': prediction}},\n"
-    "          open(os.environ['OMF_RESULT_FILE'], 'w'))\n"
+    "          open(os.environ['OPENFOUNDRY_RESULT_FILE'], 'w'))\n"
 )
 ERROR_SCRIPT = (
     "import json, os\n"
-    "json.dump({'protocol': 'omf.module/v1', 'status': 'error',\n"
+    "json.dump({'protocol': 'openfoundry.module/v1', 'status': 'error',\n"
     "           'error': {'code': 'Boom', 'message': 'secret value 41.5'}},\n"
-    "          open(os.environ['OMF_RESULT_FILE'], 'w'))\n"
+    "          open(os.environ['OPENFOUNDRY_RESULT_FILE'], 'w'))\n"
     "raise SystemExit(1)\n"
 )
 BAD_OUTPUT_SCRIPT = (
     "import json, os\n"
-    "json.dump({'protocol': 'omf.module/v1', 'status': 'ok',\n"
+    "json.dump({'protocol': 'openfoundry.module/v1', 'status': 'ok',\n"
     "           'outputs': {'prediction': 'seven'}},\n"
-    "          open(os.environ['OMF_RESULT_FILE'], 'w'))\n"
+    "          open(os.environ['OPENFOUNDRY_RESULT_FILE'], 'w'))\n"
 )
 
 
@@ -43,7 +43,7 @@ def _client(tmp_path, script, timeout=None):
     config = ServingConfig(
         deployment="demo",
         release="sha256:release",
-        modelPackageRef="omf://local/demo/modelpackage/affine@sha256:package",
+        modelPackageRef="openfoundry://local/demo/modelpackage/affine@sha256:package",
         operation="run",
         config={},
         state={"slope": 2.0, "intercept": 1.0, "format": "json-affine/v1"},
@@ -117,7 +117,7 @@ def test_serving_worker_reports_failures_without_echoing_values(tmp_path):
 def test_serving_worker_reports_malformed_result_as_adapter_failure(tmp_path):
     client = _client(
         tmp_path,
-        "import os; open(os.environ['OMF_RESULT_FILE'], 'w').write('not json')",
+        "import os; open(os.environ['OPENFOUNDRY_RESULT_FILE'], 'w').write('not json')",
     )
     response = client.post("/v1/infer", json={"inputs": {"input": 3.0}})
     assert response.status_code == 502

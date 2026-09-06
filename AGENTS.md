@@ -1,6 +1,6 @@
-# Contributing to Open Model Factory
+# Contributing to OpenFoundry
 
-OMF takes a model project from a model card through training, evaluation,
+OpenFoundry takes a model project from a model card through training, evaluation,
 release, and local deployment. Keep that loop runnable. The installed project
 guide is `templates/project/AGENTS.md`; this file covers the distribution.
 
@@ -12,7 +12,7 @@ learning from feedback; see `docs/evaluation.md` for the reporting distinction.
 
 ## Start here
 
-- `make setup` creates `.venv/` with locked dependencies and editable OMF.
+- `make setup` creates `.venv/` with locked dependencies and editable OpenFoundry.
 - `make check` runs formatting, lint, and strict types.
 - `make test TEST_ARGS='tests/test_agent.py -q'` runs a focused selection.
 - `make test-all` runs checks and the full suite with branch coverage.
@@ -26,7 +26,7 @@ do not weaken isolation or substitute a fake success to make them pass.
 
 Read the relevant implementation and tests before editing. Use
 `docs/architecture.md` for boundaries and invariants, and `docs/walkthrough.md`
-for the executable lifecycle. Resource formats live in `factory/omf/schemas/`,
+for the executable lifecycle. Resource formats live in `factory/openfoundry/schemas/`,
 `models.py`, and `schema_registry.py`. Interface behavior belongs in the
 application, shared by CLI and HTTP. Action contracts belong in `actions.py`.
 Read `docs/executors.md` before changing execution or transport capabilities.
@@ -62,7 +62,7 @@ the user has authorized it.
   are missing. Never silently fall back to local execution.
 - Preserve data rights, actual authorization, isolation, provenance, and atomic
   selection. Promotion requirements belong to project policy.
-- Keep secrets and payloads out of Git and agent context. `.omf/` is generated
+- Keep secrets and payloads out of Git and agent context. `.openfoundry/` is generated
   runtime state; use application commands rather than editing it directly.
 - Change formats, implementation, interfaces, relevant tests, compatibility
   notes, and docs together when a contract changes. Make only support claims

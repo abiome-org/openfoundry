@@ -1,4 +1,4 @@
-apiVersion: omf.dev/v1alpha1
+apiVersion: openfoundry.dev/v1alpha1
 kind: Policy
 metadata:
   name: default
@@ -8,7 +8,7 @@ spec:
       effect: allow
       match:
         actor: local-user
-        resource: __OMF_PROJECT_NAMESPACE__
+        resource: __OPENFOUNDRY_PROJECT_NAMESPACE__
   config:
     dirtyWorktree: archive
     promotion:

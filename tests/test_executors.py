@@ -10,18 +10,18 @@ from pathlib import Path
 
 import pytest
 from _environments import create_environment, offline_environment
-from omf.errors import CapabilityError, ConfigurationError, IntegrityError, ValidationError
-from omf.executors import EXECUTOR_API_VERSION, ExecutorProvider, ExecutorRegistry
-from omf.executors.base import DependencyLock
-from omf.executors.local import LocalExecutor
-from omf.executors.registry import default_executor_registry
+from openfoundry.errors import CapabilityError, ConfigurationError, IntegrityError, ValidationError
+from openfoundry.executors import EXECUTOR_API_VERSION, ExecutorProvider, ExecutorRegistry
+from openfoundry.executors.base import DependencyLock
+from openfoundry.executors.local import LocalExecutor
+from openfoundry.executors.registry import default_executor_registry
 
 
 def _install_plugin(site: Path, dist: str, entry: str, target: str, source: str) -> None:
     info = site / f"{dist}.dist-info"
     info.mkdir(parents=True)
     (info / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {dist}\nVersion: 1.0\n")
-    (info / "entry_points.txt").write_text(f"[omf.executors]\n{entry} = {target}\n")
+    (info / "entry_points.txt").write_text(f"[openfoundry.executors]\n{entry} = {target}\n")
     (site / f"{target.partition(':')[0]}.py").write_text(source)
 
 
@@ -46,7 +46,7 @@ def test_executor_registry_catalog_duplicates_unknown_and_discovery(tmp_path, mo
         registry.resolve(
             "missing",
             project_root=tmp_path,
-            state_root=tmp_path / ".omf",
+            state_root=tmp_path / ".openfoundry",
             actor="tester",
             declaration={},
         )
@@ -57,14 +57,19 @@ def test_executor_registry_catalog_duplicates_unknown_and_discovery(tmp_path, mo
         "example-provider",
         "custom",
         "example_provider:provider",
-        "from omf.executors import EXECUTOR_API_VERSION, ExecutorContext, ExecutorProvider\n"
-        "from omf.executors.local import LocalExecutor\n\n"
-        "provider = ExecutorProvider(\n"
-        '    "custom",\n'
-        "    EXECUTOR_API_VERSION,\n"
-        "    lambda context: LocalExecutor() if isinstance(context, ExecutorContext) else None,\n"
-        '    config_contract={"type": "object", "additionalProperties": False},\n'
-        ")\n",
+        (
+            "from openfoundry.executors import "
+            "EXECUTOR_API_VERSION, ExecutorContext, ExecutorProvider\n"
+            "from openfoundry.executors.local import LocalExecutor\n\n"
+            "provider = ExecutorProvider(\n"
+            '    "custom",\n'
+            "    EXECUTOR_API_VERSION,\n"
+            "    lambda context: LocalExecutor() "
+            "if isinstance(context, ExecutorContext) else None,\n"
+            '    config_contract={"type": "object", '
+            '"additionalProperties": False},\n'
+            ")\n"
+        ),
     )
     monkeypatch.syspath_prepend(str(site))
     custom = ExecutorRegistry()
@@ -76,7 +81,7 @@ def test_executor_registry_catalog_duplicates_unknown_and_discovery(tmp_path, mo
         custom.resolve(
             "custom",
             project_root=tmp_path,
-            state_root=tmp_path / ".omf",
+            state_root=tmp_path / ".openfoundry",
             actor="tester",
             declaration={},
             config={"submitted-secret": "must-not-be-returned"},
@@ -95,7 +100,7 @@ def test_executor_registry_rejects_invalid_plugins_and_controller_fields(tmp_pat
             ExecutorProvider(" invalid ", EXECUTOR_API_VERSION, lambda _context: LocalExecutor())
         )
     with pytest.raises(ConfigurationError, match="unsupported API version"):
-        registry.register(ExecutorProvider("old", "omf.executor/v1alpha1", LocalExecutor))
+        registry.register(ExecutorProvider("old", "openfoundry.executor/v1alpha1", LocalExecutor))
     with pytest.raises(ConfigurationError, match="invalid config contract"):
         registry.register(
             ExecutorProvider(
@@ -110,7 +115,7 @@ def test_executor_registry_rejects_invalid_plugins_and_controller_fields(tmp_pat
     registry.register(provider)
     resolve = {
         "project_root": tmp_path,
-        "state_root": tmp_path / ".omf",
+        "state_root": tmp_path / ".openfoundry",
         "actor": "tester",
         "declaration": {},
     }
@@ -147,8 +152,8 @@ def test_executor_registry_rejects_invalid_plugins_and_controller_fields(tmp_pat
         "wrong-provider",
         "declared-name",
         "wrong_provider:provider",
-        "from omf.executors import EXECUTOR_API_VERSION, ExecutorProvider\n"
-        "from omf.executors.local import LocalExecutor\n\n"
+        "from openfoundry.executors import EXECUTOR_API_VERSION, ExecutorProvider\n"
+        "from openfoundry.executors.local import LocalExecutor\n\n"
         'provider = ExecutorProvider("different-name", EXECUTOR_API_VERSION, '
         "lambda _context: LocalExecutor())\n",
     )
@@ -225,33 +230,37 @@ import sys
 import time
 from pathlib import Path
 
-import omf
-import omf_stable_executor
-from omf.executors import EXECUTOR_API_VERSION, ExecutorContext, default_executor_registry
+import openfoundry
+import openfoundry_stable_executor
+from openfoundry.executors import EXECUTOR_API_VERSION, ExecutorContext, default_executor_registry
 
 prefix = Path(sys.prefix).resolve()
-assert Path(omf.__file__).resolve().is_relative_to(prefix)
-assert Path(omf_stable_executor.__file__).resolve().is_relative_to(prefix)
-requires = importlib.metadata.metadata("omf-stable-executor-test-plugin").get_all("Requires-Dist")
-assert requires == ["open-model-factory<3,>=2"]
+assert Path(openfoundry.__file__).resolve().is_relative_to(prefix)
+assert Path(openfoundry_stable_executor.__file__).resolve().is_relative_to(prefix)
+requires = (
+    importlib.metadata.metadata("openfoundry-stable-executor-test-plugin").get_all(
+        "Requires-Dist"
+    )
+)
+assert requires == ["openfoundry<3,>=2"]
 registry = default_executor_registry()
 catalog = registry.catalog()
 stable = next(item for item in catalog["providers"] if item["name"] == "stable-test")
 assert catalog["apiVersion"] == EXECUTOR_API_VERSION
 assert stable["apiVersion"] == EXECUTOR_API_VERSION
-assert stable["source"].startswith("entry-point:omf-stable-executor-test-plugin:")
+assert stable["source"].startswith("entry-point:openfoundry-stable-executor-test-plugin:")
 
 root = Path("project").resolve()
-state = root / ".omf"
+state = root / ".openfoundry"
 state.mkdir(parents=True)
 context = ExecutorContext(root, state, "acceptance", {}, {})
-executor = omf_stable_executor.create(context)
+executor = openfoundry_stable_executor.create(context)
 run_dir = state / "run"
 command = (
     "import os\\n"
     "import pathlib\\n"
     "import sys\\n"
-    "pathlib.Path(os.environ['OMF_RESULT_FILE']).write_text(os.environ['OMF_RUN_ID'])\\n"
+    "pathlib.Path(os.environ['OPENFOUNDRY_RESULT_FILE']).write_text(os.environ['OPENFOUNDRY_RUN_ID'])\\n"
     "print('out-tail')\\n"
     "print('err-tail', file=sys.stderr)"
 )
@@ -265,7 +274,7 @@ execution_id = executor.submit(
 )
 while executor.status(execution_id).state in {"pending", "running"}:
     time.sleep(0.01)
-attached = omf_stable_executor.create(context)
+attached = openfoundry_stable_executor.create(context)
 attached.attach(execution_id, run_dir)
 assert attached.status(execution_id).state == "succeeded"
 assert attached.recover(run_dir) == execution_id
@@ -292,7 +301,10 @@ def test_local_executor_success_failure_logs_and_reconcile(tmp_path):
         argv=[
             "python3",
             "-c",
-            "import os,pathlib; pathlib.Path(os.environ['OMF_RESULT_FILE']).write_text('{}')",
+            (
+                "import os,pathlib; "
+                "pathlib.Path(os.environ['OPENFOUNDRY_RESULT_FILE']).write_text('{}')"
+            ),
         ],
         run_dir=success_dir,
         cwd=tmp_path,
@@ -477,7 +489,7 @@ def test_local_executor_realizes_dependency_lock_from_wheelhouse(tmp_path):
 
     wheelhouse = tmp_path / "wheels"
     _wheel, wheel_digest = build_wheel(wheelhouse)
-    lock = lock_for("omftiny", "1.0", wheel_digest)
+    lock = lock_for("openfoundrytiny", "1.0", wheel_digest)
     dependency = DependencyLock(
         "requirements.lock", "sha256:" + hashlib.sha256(lock).hexdigest(), lock
     )
@@ -486,7 +498,11 @@ def test_local_executor_realizes_dependency_lock_from_wheelhouse(tmp_path):
         dependency_wheelhouse=wheelhouse,
         dependency_index=False,
     )
-    argv = ["python3", "-c", "import omf.sdk, omftiny; print(omftiny.VERSION)"]
+    argv = [
+        "python3",
+        "-c",
+        "import openfoundry.sdk, openfoundrytiny; print(openfoundrytiny.VERSION)",
+    ]
 
     environment = executor.prepare_environment(argv=argv, cwd=tmp_path, dependency=dependency)
 
@@ -496,10 +512,10 @@ def test_local_executor_realizes_dependency_lock_from_wheelhouse(tmp_path):
     assert environment["command"][0].startswith(str(tmp_path / "environments"))
     assert Path(environment["command"][0]).is_symlink()
     names = {item["name"] for item in environment["runtime"]["python"]["distributions"]}
-    assert {"omftiny", "open-model-factory"} <= names
+    assert {"openfoundrytiny", "openfoundry"} <= names
     again = executor.prepare_environment(argv=argv, cwd=tmp_path, dependency=dependency)
     assert again["digest"] == environment["digest"]
-    assert len(list((tmp_path / "environments").glob("*/omf-environment.json"))) == 1
+    assert len(list((tmp_path / "environments").glob("*/openfoundry-environment.json"))) == 1
 
     run_dir = tmp_path / "run"
     execution_id = executor.submit(
@@ -521,7 +537,7 @@ def test_dependency_cache_distinguishes_venvs_sharing_one_interpreter(tmp_path):
 
     wheelhouse = tmp_path / "wheels"
     _, digest = build_wheel(wheelhouse)
-    contents = lock_for("omftiny", "1.0", digest)
+    contents = lock_for("openfoundrytiny", "1.0", digest)
     dependency = DependencyLock(
         "requirements.lock", "sha256:" + hashlib.sha256(contents).hexdigest(), contents
     )
@@ -543,7 +559,11 @@ def test_dependency_cache_distinguishes_venvs_sharing_one_interpreter(tmp_path):
         )
         (site / "trial_marker.py").write_text(f"VALUE = {name!r}\n")
         environment = executor.prepare_environment(
-            argv=[str(python), "-c", "import trial_marker, omftiny; print(trial_marker.VALUE)"],
+            argv=[
+                str(python),
+                "-c",
+                "import trial_marker, openfoundrytiny; print(trial_marker.VALUE)",
+            ],
             cwd=tmp_path,
             dependency=dependency,
         )
@@ -553,7 +573,7 @@ def test_dependency_cache_distinguishes_venvs_sharing_one_interpreter(tmp_path):
 
 
 def test_local_executor_reports_unsatisfiable_lock_without_index(tmp_path):
-    lock = b"omfmissing==9.9 --hash=sha256:" + b"0" * 64 + b"\n"
+    lock = b"openfoundrymissing==9.9 --hash=sha256:" + b"0" * 64 + b"\n"
     executor = LocalExecutor(environment_root=tmp_path / "environments", dependency_index=False)
     with pytest.raises(CapabilityError, match="dependency installation failed") as excinfo:
         executor.prepare_environment(
@@ -564,7 +584,7 @@ def test_local_executor_reports_unsatisfiable_lock_without_index(tmp_path):
             ),
         )
     assert "output" in excinfo.value.details
-    assert not list((tmp_path / "environments").glob("*/omf-environment.json"))
+    assert not list((tmp_path / "environments").glob("*/openfoundry-environment.json"))
 
 
 def test_local_environment_captures_python_runtime_and_distribution_inventory(tmp_path):

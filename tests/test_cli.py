@@ -4,9 +4,9 @@ import subprocess
 from pathlib import Path
 
 import yaml
-from omf.cli import app
-from omf.config import ProjectPaths
-from omf.factory import Factory
+from openfoundry.cli import app
+from openfoundry.config import ProjectPaths
+from openfoundry.factory import Factory
 from typer.testing import CliRunner
 
 
@@ -16,8 +16,8 @@ def test_cli_help_version_and_bootstrap_plan(tmp_path):
     assert runner.invoke(app, ["--help"]).exit_code == 0
     root = tmp_path / "project"
     root.mkdir()
-    (root / "omf.yaml").write_text(
-        """apiVersion: omf.dev/v1alpha1
+    (root / "openfoundry.yaml").write_text(
+        """apiVersion: openfoundry.dev/v1alpha1
 kind: Project
 metadata: {name: cli-test, namespace: local/cli-test}
 spec: {owners: [local-user], extensions: {}}
@@ -43,8 +43,8 @@ def _full_project(tmp_path):
     root = tmp_path / "full-project"
     root.mkdir()
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
-    (root / "omf.yaml").write_text(
-        """apiVersion: omf.dev/v1alpha1
+    (root / "openfoundry.yaml").write_text(
+        """apiVersion: openfoundry.dev/v1alpha1
 kind: Project
 metadata: {name: cli-full, namespace: local/cli-full}
 spec: {owners: [local-user], extensions: {}}
@@ -74,8 +74,8 @@ def test_cli_complete_local_lifecycle(tmp_path):
     assert invoke("doctor")["ready"]
     assert invoke("agent", "context", "--limit", "2", "--max-bytes", "16384")["readiness"]["ready"]
     assert "Project" in invoke("schema", "list")["kinds"]
-    assert invoke("schema", "show", "Project")["x-omf-kind"] == "Project"
-    assert invoke("schema", "validate", root / "omf.yaml")["kind"] == "Project"
+    assert invoke("schema", "show", "Project")["x-openfoundry-kind"] == "Project"
+    assert invoke("schema", "validate", root / "openfoundry.yaml")["kind"] == "Project"
     assert (
         invoke(
             "store",
@@ -84,7 +84,7 @@ def test_cli_complete_local_lifecycle(tmp_path):
             "--driver",
             "filesystem",
             "--endpoint",
-            ".omf/secondary",
+            ".openfoundry/secondary",
         )["kind"]
         == "ArtifactStore"
     )
@@ -150,7 +150,7 @@ def test_cli_complete_local_lifecycle(tmp_path):
     evaluation = invoke("evaluate", f"run/{run_id}")
     assert evaluation["spec"]["scores"]["passed"]
     evaluation_ref = (
-        f"omf://local/cli-full/evaluationresult/{evaluation['metadata']['name']}"
+        f"openfoundry://local/cli-full/evaluationresult/{evaluation['metadata']['name']}"
         f"@{evaluation['metadata']['revision']}"
     )
     invalid_experiment = runner.invoke(
@@ -217,7 +217,7 @@ def test_cli_complete_local_lifecycle(tmp_path):
     assert invoke("lineage", "show", f"run:{run_id}/stage:train")
     assert invoke("resource", "list", "--kind", "Release")[0]["metadata"]["name"] == "release-one"
     deployment = {
-        "apiVersion": "omf.dev/v1alpha1",
+        "apiVersion": "openfoundry.dev/v1alpha1",
         "kind": "DeploymentSpec",
         "metadata": {"name": "edge-one", "namespace": "local/cli-full"},
         "spec": {
@@ -232,7 +232,7 @@ def test_cli_complete_local_lifecycle(tmp_path):
     [deployment] = invoke("deployment", "list")
     assert (deployment["name"], deployment["release"], deployment["state"]) == (
         "edge-one",
-        f"omf://local/cli-full/release/release-one@{release['metadata']['revision']}",
+        f"openfoundry://local/cli-full/release/release-one@{release['metadata']['revision']}",
         "packaged",
     )
     revoked = invoke("data", "revoke", "example-numbers", "--reason", "test withdrawal")
@@ -267,11 +267,11 @@ def test_cli_complete_local_lifecycle(tmp_path):
         == 2
     )
     assert "example" in {item["name"] for item in invoke("admin", "secret", "list")}
-    backup = invoke("admin", "backup", root.parent / "factory.omf-backup")
+    backup = invoke("admin", "backup", root.parent / "factory.openfoundry-backup")
     assert backup["integrity"]
     restored = root.parent / "restored"
     restored.mkdir()
-    shutil.copy(root / "omf.yaml", restored / "omf.yaml")
+    shutil.copy(root / "openfoundry.yaml", restored / "openfoundry.yaml")
     restoration = runner.invoke(
         app,
         [

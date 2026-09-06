@@ -1,4 +1,4 @@
-apiVersion: omf.dev/v1alpha1
+apiVersion: openfoundry.dev/v1alpha1
 kind: DeploymentSpec
 metadata:
   name: example-edge

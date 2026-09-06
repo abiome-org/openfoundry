@@ -1,9 +1,9 @@
 import sqlite3
 
-import omf.database as database_module
+import openfoundry.database as database_module
 import pytest
-from omf.database import AliasRepository, Database, ResourceRepository
-from omf.errors import ConflictError, IntegrityError, NotFoundError
+from openfoundry.database import AliasRepository, Database, ResourceRepository
+from openfoundry.errors import ConflictError, IntegrityError, NotFoundError
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 import pytest
 import yaml
-from omf.errors import ValidationError
-from omf.policy import PolicyEngine, PolicyRule, ProjectPolicy, promotion_gate
+from openfoundry.errors import ValidationError
+from openfoundry.policy import PolicyEngine, PolicyRule, ProjectPolicy, promotion_gate
 
 NAMESPACE = "local/test-project"
 PROJECT = {
@@ -12,7 +12,7 @@ PROJECT = {
 
 def _policy_document(**config):
     return {
-        "apiVersion": "omf.dev/v1alpha1",
+        "apiVersion": "openfoundry.dev/v1alpha1",
         "kind": "Policy",
         "metadata": {"name": "default", "namespace": NAMESPACE},
         "spec": {

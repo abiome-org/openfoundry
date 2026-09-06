@@ -1,4 +1,4 @@
-"""An ordinary scikit-learn trainer; OMF supplies paths and records its outputs."""
+"""An ordinary scikit-learn trainer; OpenFoundry supplies paths and records its outputs."""
 
 import argparse
 import json

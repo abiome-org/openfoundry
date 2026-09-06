@@ -6,7 +6,7 @@ operation. A `Binding` says where it runs. Rebinding never changes the graph.
 ## Workload manifest
 
 ```yaml
-apiVersion: omf.dev/v1alpha1
+apiVersion: openfoundry.dev/v1alpha1
 kind: WorkloadSpec
 metadata:
   name: example-from-scratch
@@ -47,7 +47,7 @@ lineage edge. `modelPackageRef` and `evaluationRefs` are described under
 ## Binding manifest
 
 ```yaml
-apiVersion: omf.dev/v1alpha1
+apiVersion: openfoundry.dev/v1alpha1
 kind: Binding
 metadata:
   name: local
@@ -59,7 +59,7 @@ spec:
   config: {}
 ```
 
-`executor` names a provider from `omf executor list`; an unknown provider is
+`executor` names a provider from `openfoundry executor list`; an unknown provider is
 an error, never a fallback to local. `resources` are POSIX limits the local
 executor applies to every module process: `cpuSeconds`, `addressSpaceBytes`,
 `processes`, `fileSizeBytes`, and `timeoutSeconds`. `config` holds the
@@ -70,17 +70,17 @@ publishes; the local provider accepts `dependencyWheelhouse` and
 ## Running
 
 ```sh
-omf executor preflight bindings/local.yaml --workload workloads/example-from-scratch.yaml
-omf --actor research-agent run workloads/example-from-scratch.yaml --binding bindings/local.yaml
-omf runs list
-omf runs status <run-id>
-omf lineage show run:<run-id>/stage:train
+openfoundry executor preflight bindings/local.yaml --workload workloads/example-from-scratch.yaml
+openfoundry --actor research-agent run workloads/example-from-scratch.yaml --binding bindings/local.yaml
+openfoundry runs list
+openfoundry runs status <run-id>
+openfoundry lineage show run:<run-id>/stage:train
 ```
 
 Preflight instantiates the provider and reports missing capabilities and host
 issues without creating anything. `run` performs admission and executes the
 graph in this process; `run --detach` records an operation and starts a
-worker, and `omf operation list`, `get`, and `reconcile` follow it.
+worker, and `openfoundry operation list`, `get`, and `reconcile` follow it.
 
 Admission does all of the following before allocating compute, and records the
 result in the immutable `Run` resource:
@@ -91,7 +91,7 @@ result in the immutable `Run` resource:
    revisions and checks rights for each stage's training or evaluation use.
 3. Captures every stage module and the inference adapter as content-addressed
    packages and prepares their environments through the executor.
-4. Writes the run state under `.omf/runs/<run-id>/state.json` and transitions
+4. Writes the run state under `.openfoundry/runs/<run-id>/state.json` and transitions
    it through `Validated`, `Admitted`, and `Running`.
 
 Each stage then runs one module exchange; its outputs and imported artifacts
@@ -102,7 +102,7 @@ source, and artifacts. A succeeded run publishes an immutable `RunResult`, and
 ## Recovery
 
 An interrupted controller can be resumed with
-`omf operation reconcile <operation-id>` under the original actor. OMF
+`openfoundry operation reconcile <operation-id>` under the original actor. OpenFoundry
 reattaches to a submitted execution, verifies that the captured sources, plan
 digests, and admission digests match what was recorded, and continues. If the
 outcome cannot be established from durable evidence, the run is marked

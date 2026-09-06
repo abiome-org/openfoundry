@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from omf.sdk import ProtocolRequest, ProtocolResult, main
+from openfoundry.sdk import ProtocolRequest, ProtocolResult, main
 
 
 def validate(_request: ProtocolRequest) -> ProtocolResult:

@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from omf.sdk import ProtocolRequest, ProtocolResult, main
+from openfoundry.sdk import ProtocolRequest, ProtocolResult, main
 
 
 def validate(_request: ProtocolRequest) -> ProtocolResult:
-    return ProtocolResult(status="ok", outputs={"protocol": "omf.module/v1"})
+    return ProtocolResult(status="ok", outputs={"protocol": "openfoundry.module/v1"})
 
 
 def run(request: ProtocolRequest) -> ProtocolResult:

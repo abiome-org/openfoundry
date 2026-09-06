@@ -7,10 +7,10 @@ the same name are new revisions.
 ## Adding data
 
 ```sh
-omf data add data/fixtures/affine.jsonl --name example-affine --mode copy \
+openfoundry data add data/fixtures/affine.jsonl --name example-affine --mode copy \
   --rights data/fixtures/rights.yaml
-omf data verify example-affine
-omf data list
+openfoundry data verify example-affine
+openfoundry data list
 ```
 
 | Mode | Behavior |
@@ -32,7 +32,7 @@ Rights are checked against the pinned and newest revisions at admission, executi
 recovery, release, and promotion. Revocation denies both uses.
 
 ```sh
-omf --actor data-steward data revoke example-affine --reason "consent withdrawn"
+openfoundry --actor data-steward data revoke example-affine --reason "consent withdrawn"
 ```
 
 Revocation creates a new revision that denies training. Queued runs fail at
@@ -57,15 +57,15 @@ blind evaluation.
 
 ## Stores and sync
 
-The local store lives under `.omf/store`. Additional stores hold replicas:
+The local store lives under `.openfoundry/store`. Additional stores hold replicas:
 
 ```sh
-omf store add secondary --driver filesystem --endpoint .omf/secondary
-omf admin secret set primary --purpose artifact-store-credentials \
+openfoundry store add secondary --driver filesystem --endpoint .openfoundry/secondary
+openfoundry admin secret set primary --purpose artifact-store-credentials \
   --value '{"aws_access_key_id":"...","aws_secret_access_key":"..."}'
-omf store add primary --driver s3 --endpoint s3://bucket/prefix --secret-ref primary
-omf sync push dataset/example-affine --to secondary --plan
-omf sync push dataset/example-affine --to secondary
+openfoundry store add primary --driver s3 --endpoint s3://bucket/prefix --secret-ref primary
+openfoundry sync push dataset/example-affine --to secondary --plan
+openfoundry sync push dataset/example-affine --to secondary
 ```
 
 S3 credentials are an encrypted secret with purpose

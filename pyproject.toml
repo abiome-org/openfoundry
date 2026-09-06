@@ -3,13 +3,13 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "open-model-factory"
+name = "openfoundry"
 dynamic = ["version"]
 description = "Repository-centered, model-neutral development and release system"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 license = { file = "LICENSE" }
-authors = [{ name = "Open Model Factory contributors" }]
+authors = [{ name = "OpenFoundry contributors" }]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Console",
@@ -52,18 +52,18 @@ dev = [
 ]
 
 [project.scripts]
-omf = "omf.cli:app"
+openfoundry = "openfoundry.cli:app"
 
 [project.urls]
-Documentation = "https://github.com/abiome-org/OpenModelFactory"
-Repository = "https://github.com/abiome-org/OpenModelFactory"
-Issues = "https://github.com/abiome-org/OpenModelFactory/issues"
+Documentation = "https://github.com/abiome-org/openfoundry"
+Repository = "https://github.com/abiome-org/openfoundry"
+Issues = "https://github.com/abiome-org/openfoundry/issues"
 
 [tool.hatch.version]
-path = "factory/omf/_version.py"
+path = "factory/openfoundry/_version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["factory/omf"]
+packages = ["factory/openfoundry"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -82,7 +82,7 @@ include = [
   "/install.sh",
   "/model-packages",
   "/modules/examples",
-  "/omf.yaml",
+  "/openfoundry.yaml",
   "/policies",
   "/README.md",
   "/requirements.build.in",
@@ -100,7 +100,7 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["omf"]
+source = ["openfoundry"]
 # These workers execute as real child processes beyond in-process coverage tracing.
 omit = ["*/executors/local_worker.py", "*/run_worker.py"]
 
@@ -124,11 +124,11 @@ ignore = ["ISC001"]
 max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
-"factory/omf/api.py" = ["B008"]
-"factory/omf/cli.py" = ["B008"]
+"factory/openfoundry/api.py" = ["B008"]
+"factory/openfoundry/cli.py" = ["B008"]
 "tests/*" = ["PLR0915"]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
-packages = ["omf"]
+packages = ["openfoundry"]

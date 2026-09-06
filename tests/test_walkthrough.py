@@ -8,9 +8,9 @@ import tarfile
 from pathlib import Path
 
 import yaml
-from omf.config import ProjectPaths, bootstrap
-from omf.factory import Factory
-from omf.install_support import copy_starter
+from openfoundry.config import ProjectPaths, bootstrap
+from openfoundry.factory import Factory
+from openfoundry.install_support import copy_starter
 
 DOCS = Path("docs")
 
@@ -18,12 +18,12 @@ DOCS = Path("docs")
 def _walkthrough_project(tmp_path: Path) -> Path:
     root = tmp_path / "walkthrough-project"
     root.mkdir()
-    shutil.copy2("omf.yaml", root / "omf.yaml")
+    shutil.copy2("openfoundry.yaml", root / "openfoundry.yaml")
     shutil.copy2(".gitignore", root / ".gitignore")
     model_card = Path("templates/project/MODEL_CARD.md").read_text()
     (root / "MODEL_CARD.md").write_text(
-        model_card.replace("__OMF_PROJECT_NAME__", "open-model-factory").replace(
-            "__OMF_PROJECT_NAMESPACE__", "local/open-model-factory"
+        model_card.replace("__OPENFOUNDRY_PROJECT_NAME__", "openfoundry").replace(
+            "__OPENFOUNDRY_PROJECT_NAMESPACE__", "local/openfoundry"
         )
     )
     (root / "bindings").mkdir()
@@ -31,8 +31,12 @@ def _walkthrough_project(tmp_path: Path) -> Path:
     copy_starter(Path.cwd(), root)
 
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
-    subprocess.run(["git", "config", "user.name", "OMF walkthrough test"], cwd=root, check=True)
-    subprocess.run(["git", "config", "user.email", "test@omf.invalid"], cwd=root, check=True)
+    subprocess.run(
+        ["git", "config", "user.name", "OpenFoundry walkthrough test"], cwd=root, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@openfoundry.invalid"], cwd=root, check=True
+    )
     subprocess.run(["git", "add", "."], cwd=root, check=True)
     subprocess.run(["git", "commit", "-qm", "Create walkthrough fixture"], cwd=root, check=True)
     return root
@@ -129,14 +133,14 @@ def test_walkthrough_transcript_executes_end_to_end(tmp_path):
 
     binary_directory = tmp_path / "bin"
     binary_directory.mkdir()
-    omf = binary_directory / "omf"
-    omf.write_text(
-        f'#!/bin/sh\nexec {shlex.quote(sys.executable)} -m omf "$@"\n',
+    openfoundry = binary_directory / "openfoundry"
+    openfoundry.write_text(
+        f'#!/bin/sh\nexec {shlex.quote(sys.executable)} -m openfoundry "$@"\n',
         encoding="utf-8",
     )
-    omf.chmod(0o755)
+    openfoundry.chmod(0o755)
     environment = os.environ | {
-        "OMF_ACTOR": "local-user",
+        "OPENFOUNDRY_ACTOR": "local-user",
         "PATH": f"{binary_directory}{os.pathsep}{os.environ['PATH']}",
     }
     result = subprocess.run(

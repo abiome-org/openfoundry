@@ -1,12 +1,12 @@
 import pytest
-from omf.errors import IntegrityError
-from omf.releases import ReleaseBuilder, verify_release
-from omf.security import SigningIdentity
+from openfoundry.errors import IntegrityError
+from openfoundry.releases import ReleaseBuilder, verify_release
+from openfoundry.security import SigningIdentity
 
 
 def _manifest():
     return {
-        "format": "omf.release/v2",
+        "format": "openfoundry.release/v2",
         "model": {},
         "runtime": {},
         "provenance": {},
@@ -34,11 +34,11 @@ def test_concurrent_promotions_commit_one_alias_move(tmp_path, monkeypatch):
     import threading
     from concurrent.futures import ThreadPoolExecutor
 
-    from omf.database import AliasRepository, Database
-    from omf.errors import ConflictError
-    from omf.events import EventStore
-    from omf.policy import PolicyDecision
-    from omf.releases import promote_alias
+    from openfoundry.database import AliasRepository, Database
+    from openfoundry.errors import ConflictError
+    from openfoundry.events import EventStore
+    from openfoundry.policy import PolicyDecision
+    from openfoundry.releases import promote_alias
 
     database = Database(tmp_path / "metadata.db")
     events = EventStore(database, SigningIdentity(tmp_path / "key"))

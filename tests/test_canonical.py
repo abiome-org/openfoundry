@@ -1,6 +1,6 @@
 import pytest
-from omf.canonical import canonical_json, load_document, sha256_digest
-from omf.errors import ValidationError
+from openfoundry.canonical import canonical_json, load_document, sha256_digest
+from openfoundry.errors import ValidationError
 
 
 def test_rfc8785_key_order_and_number_form():

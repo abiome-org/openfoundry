@@ -1,7 +1,7 @@
 import pytest
-from omf.database import Database
-from omf.errors import ConflictError, NotFoundError
-from omf.operations import OperationStore
+from openfoundry.database import Database
+from openfoundry.errors import ConflictError, NotFoundError
+from openfoundry.operations import OperationStore
 
 
 def test_operation_lifecycle_compare_and_set_filter_and_restart(tmp_path):

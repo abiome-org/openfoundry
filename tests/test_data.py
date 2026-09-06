@@ -1,7 +1,7 @@
 import pytest
-from omf.data import DataService
-from omf.errors import IntegrityError, ValidationError
-from omf.stores.filesystem import FilesystemStore
+from openfoundry.data import DataService
+from openfoundry.errors import IntegrityError, ValidationError
+from openfoundry.stores.filesystem import FilesystemStore
 
 
 @pytest.mark.parametrize("mode", ["register", "mount"])

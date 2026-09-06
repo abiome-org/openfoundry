@@ -21,7 +21,7 @@ and feedback that affect the claim.
 ## Model packages
 
 ```yaml
-apiVersion: omf.dev/v1alpha1
+apiVersion: openfoundry.dev/v1alpha1
 kind: ModelPackage
 metadata:
   name: example-affine
@@ -54,7 +54,7 @@ are captured at admission, so the compatibility check later runs the exact
 admitted serving module against the trained state. This checks the serving
 behavior directly instead of relying solely on the training stage's report.
 
-When `stateOutput` names an artifact, OMF verifies and restores its bytes before
+When `stateOutput` names an artifact, OpenFoundry verifies and restores its bytes before
 both compatibility checks and serving. The adapter reads `request.state["path"]`:
 a file for a file artifact, or the root directory for a directory artifact.
 The state also carries `resource`, `kind`, `artifacts`, and `paths`, as with a
@@ -64,7 +64,7 @@ is passed through unchanged. State signatures validate this resolved value.
 ## Evaluation specs
 
 ```yaml
-apiVersion: omf.dev/v1alpha1
+apiVersion: openfoundry.dev/v1alpha1
 kind: EvaluationSpec
 metadata:
   name: example-affine
@@ -83,8 +83,8 @@ for a model improvement.
 ## Evaluating a run
 
 ```sh
-omf --actor research-agent evaluate run/<run-id>
-omf resource list --kind EvaluationResult
+openfoundry --actor research-agent evaluate run/<run-id>
+openfoundry resource list --kind EvaluationResult
 ```
 
 `evaluate` reads the run result, applies every metric threshold, runs the
@@ -98,7 +98,7 @@ when an evaluator stage emits `compatibilityPassed: true` itself.
 ## Experiments
 
 ```sh
-omf --actor research-agent experiment create longer-training \
+openfoundry --actor research-agent experiment create longer-training \
   --baseline run/<baseline-run-id> --candidate run/<candidate-run-id> \
   --metric training-loss --direction minimize
 ```
@@ -106,6 +106,6 @@ omf --actor research-agent experiment create longer-training \
 An `Experiment` compares one numeric metric between two evaluation results
 that used the same evaluation revisions and records `baseline`, `candidate`,
 or `tie` with the delta. References may be `run/<id>`, an evaluation result
-name, or a full `omf://` URI. Statistical treatment, repeats, slices, and
+name, or a full `openfoundry://` URI. Statistical treatment, repeats, slices, and
 uncertainty belong to evaluator modules and their artifacts; the experiment
 decision is only as strong as the metric behind it. Record the conclusion and experiment revision in the model card.

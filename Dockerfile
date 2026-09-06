@@ -12,19 +12,19 @@ RUN python -m pip install --only-binary=:all: --require-hashes -r requirements.b
 
 FROM python:3.11-slim-bookworm AS runtime
 
-ARG OMF_UID=10001
-ARG OMF_GID=10001
+ARG OPENFOUNDRY_UID=10001
+ARG OPENFOUNDRY_GID=10001
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1
-RUN groupadd --gid ${OMF_GID} omf \
-    && useradd --uid ${OMF_UID} --gid ${OMF_GID} --create-home omf
+RUN groupadd --gid ${OPENFOUNDRY_GID} openfoundry \
+    && useradd --uid ${OPENFOUNDRY_UID} --gid ${OPENFOUNDRY_GID} --create-home openfoundry
 COPY --from=build /wheels /wheels
 COPY requirements.runtime.lock /requirements.runtime.lock
 RUN python -m pip install --no-index --find-links /wheels --require-hashes \
         -r /requirements.runtime.lock \
-    && python -m pip install --no-index --no-deps /wheels/open_model_factory-*.whl \
+    && python -m pip install --no-index --no-deps /wheels/openfoundry-*.whl \
     && rm -rf /wheels
 WORKDIR /workspace
-USER omf
+USER openfoundry
 EXPOSE 8080
-ENTRYPOINT ["omf"]
+ENTRYPOINT ["openfoundry"]
 CMD ["--help"]

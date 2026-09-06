@@ -6,21 +6,21 @@ from pathlib import Path
 
 import pytest
 from _environments import offline_environment
-from omf.install_support import (
+from openfoundry.install_support import (
     STARTER,
     copy_starter,
     render_template,
     upsert_managed_section,
     validate_managed_file,
 )
-from omf.install_support import main as install_support_main
-from omf.modules import load_manifest
-from omf.schema_registry import SchemaRegistry
+from openfoundry.install_support import main as install_support_main
+from openfoundry.modules import load_manifest
+from openfoundry.schema_registry import SchemaRegistry
 
-AGENTS_BEGIN = "<!-- BEGIN OMF OPERATOR GUIDE -->"
-AGENTS_END = "<!-- END OMF OPERATOR GUIDE -->"
-IGNORE_BEGIN = "# BEGIN OMF MANAGED IGNORE"
-IGNORE_END = "# END OMF MANAGED IGNORE"
+AGENTS_BEGIN = "<!-- BEGIN OpenFoundry OPERATOR GUIDE -->"
+AGENTS_END = "<!-- END OpenFoundry OPERATOR GUIDE -->"
+IGNORE_BEGIN = "# BEGIN OpenFoundry MANAGED IGNORE"
+IGNORE_END = "# END OpenFoundry MANAGED IGNORE"
 
 
 def test_install_script_help_and_plan_are_non_mutating(tmp_path):
@@ -64,15 +64,18 @@ def test_install_script_rejects_invalid_project_name(tmp_path):
 @pytest.mark.parametrize(
     "content",
     [
-        "<!-- BEGIN OMF OPERATOR GUIDE -->\n",
-        "<!-- END OMF OPERATOR GUIDE -->\n",
+        "<!-- BEGIN OpenFoundry OPERATOR GUIDE -->\n",
+        "<!-- END OpenFoundry OPERATOR GUIDE -->\n",
         (
-            "<!-- BEGIN OMF OPERATOR GUIDE -->\n"
-            "<!-- END OMF OPERATOR GUIDE -->\n"
-            "<!-- BEGIN OMF OPERATOR GUIDE -->\n"
-            "<!-- END OMF OPERATOR GUIDE -->\n"
+            "<!-- BEGIN OpenFoundry OPERATOR GUIDE -->\n"
+            "<!-- END OpenFoundry OPERATOR GUIDE -->\n"
+            "<!-- BEGIN OpenFoundry OPERATOR GUIDE -->\n"
+            "<!-- END OpenFoundry OPERATOR GUIDE -->\n"
         ),
-        ("> <!-- BEGIN OMF OPERATOR GUIDE -->\n> <!-- END OMF OPERATOR GUIDE -->\n"),
+        (
+            "> <!-- BEGIN OpenFoundry OPERATOR GUIDE -->\n"
+            "> <!-- END OpenFoundry OPERATOR GUIDE -->\n"
+        ),
     ],
 )
 def test_install_plan_rejects_malformed_managed_markers_without_mutation(tmp_path, content):
@@ -114,7 +117,7 @@ def test_install_rejects_fake_venv_python_without_executing_it(tmp_path):
     binary.write_text(f"#!/bin/sh\ntouch '{marker}'\n", encoding="utf-8")
     binary.chmod(0o755)
     (target / ".venv/pyvenv.cfg").write_text("home = /tmp\n", encoding="utf-8")
-    (target / ".venv/.omf-managed").write_text("forged marker\n", encoding="utf-8")
+    (target / ".venv/.openfoundry-managed").write_text("forged marker\n", encoding="utf-8")
 
     result = subprocess.run(
         ["bash", "install.sh", str(target)],
@@ -123,7 +126,7 @@ def test_install_rejects_fake_venv_python_without_executing_it(tmp_path):
         text=True,
     )
     assert result.returncode == 1
-    assert "is not OMF-managed" in result.stderr
+    assert "is not OpenFoundry-managed" in result.stderr
     assert not marker.exists()
 
 
@@ -157,7 +160,10 @@ def test_managed_sections_upgrade_once_and_preserve_project_content(
 ):
     destination = tmp_path / destination_name
     destination.write_text(
-        f"project content before\n\n{begin}\nobsolete OMF text\n{end}\n\nproject content after\n",
+        (
+            f"project content before\n\n{begin}\n"
+            f"obsolete OpenFoundry text\n{end}\n\nproject content after\n"
+        ),
         encoding="utf-8",
     )
     destination.chmod(0o640)
@@ -167,7 +173,7 @@ def test_managed_sections_upgrade_once_and_preserve_project_content(
     metadata = destination.stat()
     assert updated.startswith("project content before\n\n")
     assert updated.endswith("\n\nproject content after\n")
-    assert "obsolete OMF text" not in updated
+    assert "obsolete OpenFoundry text" not in updated
     assert updated.count(begin) == 1
     assert updated.count(end) == 1
     assert stat.S_IMODE(metadata.st_mode) == 0o640
@@ -229,8 +235,8 @@ def test_install_support_creates_and_preserves_templates_and_managed_files(tmp_p
     assert upsert_managed_section(section, destination, IGNORE_BEGIN, IGNORE_END)
     assert destination.read_text(encoding="utf-8").startswith("project-ignore\n\n")
 
-    rendered = tmp_path / "omf.yaml"
-    manifest_template = Path("templates/project/omf.yaml")
+    rendered = tmp_path / "openfoundry.yaml"
+    manifest_template = Path("templates/project/openfoundry.yaml")
     assert (
         install_support_main(
             ["render", str(manifest_template), str(rendered), "factory", "local/factory"]
@@ -249,7 +255,7 @@ def test_install_support_creates_and_preserves_templates_and_managed_files(tmp_p
     model_card_content = model_card.read_text(encoding="utf-8")
     assert model_card_content.startswith("# factory model card\n")
     assert "`local/factory`" in model_card_content
-    assert "__OMF_PROJECT_NAME__" not in model_card_content
+    assert "__OPENFOUNDRY_PROJECT_NAME__" not in model_card_content
     assert not render_template(model_card_template, model_card, "changed", "local/changed")
     assert model_card.read_text(encoding="utf-8") == model_card_content
 
@@ -286,19 +292,19 @@ def test_install_support_writes_through_an_inherited_target_after_path_swap(tmp_
         target_path.rename(relocated)
         target_path.symlink_to(outside, target_is_directory=True)
         target = Path(f"/proc/self/fd/{descriptor}")
-        rendered = target / "omf.yaml"
+        rendered = target / "openfoundry.yaml"
         assert render_template(
-            Path("templates/project/omf.yaml"), rendered, "anchored", "local/anchored"
+            Path("templates/project/openfoundry.yaml"), rendered, "anchored", "local/anchored"
         )
     finally:
         os.close(descriptor)
 
-    assert "name: anchored" in (relocated / "omf.yaml").read_text(encoding="utf-8")
-    assert not (outside / "omf.yaml").exists()
+    assert "name: anchored" in (relocated / "openfoundry.yaml").read_text(encoding="utf-8")
+    assert not (outside / "openfoundry.yaml").exists()
 
 
 def test_render_template_never_replaces_a_concurrently_created_manifest(tmp_path, monkeypatch):
-    destination = tmp_path / "omf.yaml"
+    destination = tmp_path / "openfoundry.yaml"
     original_link = os.link
 
     def create_competing_manifest(*args, **kwargs):
@@ -307,24 +313,28 @@ def test_render_template_never_replaces_a_concurrently_created_manifest(tmp_path
 
     monkeypatch.setattr(os, "link", create_competing_manifest)
     with pytest.raises(FileExistsError):
-        render_template(Path("templates/project/omf.yaml"), destination, "factory", "local/factory")
+        render_template(
+            Path("templates/project/openfoundry.yaml"), destination, "factory", "local/factory"
+        )
 
     assert destination.read_text(encoding="utf-8") == "created concurrently\n"
-    assert not list(tmp_path.glob(".omf.yaml.omf-*"))
+    assert not list(tmp_path.glob(".openfoundry.yaml.openfoundry-*"))
 
 
 def test_render_template_does_not_publish_a_partial_manifest(tmp_path, monkeypatch):
-    destination = tmp_path / "omf.yaml"
+    destination = tmp_path / "openfoundry.yaml"
 
     def fail_sync(_descriptor):
         raise OSError("simulated storage failure")
 
     monkeypatch.setattr(os, "fsync", fail_sync)
     with pytest.raises(OSError, match="simulated storage failure"):
-        render_template(Path("templates/project/omf.yaml"), destination, "factory", "local/factory")
+        render_template(
+            Path("templates/project/openfoundry.yaml"), destination, "factory", "local/factory"
+        )
 
     assert not destination.exists()
-    assert not list(tmp_path.glob(".omf.yaml.omf-*"))
+    assert not list(tmp_path.glob(".openfoundry.yaml.openfoundry-*"))
 
 
 def test_managed_file_validation_rejects_non_regular_destination(tmp_path):
@@ -375,7 +385,7 @@ def test_directory_installer_is_idempotent_and_rebuilds_only_its_managed_venv(tm
     gitignore = (target / ".gitignore").read_text(encoding="utf-8")
     model_card = (target / "MODEL_CARD.md").read_text(encoding="utf-8")
     first_venv_inode = (target / ".venv").stat().st_ino
-    assert "Open Model Factory is ready" in first.stdout
+    assert "OpenFoundry is ready" in first.stdout
     assert agents.startswith("project agent rule\n\n")
     assert "old guide" not in agents
     assert gitignore.startswith("project-ignore\n\n")
@@ -383,18 +393,18 @@ def test_directory_installer_is_idempotent_and_rebuilds_only_its_managed_venv(tm
     assert model_card.startswith("# installed-factory model card\n")
     assert "`local/installed-factory`" in model_card
     assert (target / ".venv").is_symlink()
-    assert (target / ".venv/.omf-managed").is_file()
+    assert (target / ".venv/.openfoundry-managed").is_file()
     assert (target / "modules/examples/affine-regression/module.yaml").is_file()
     git = ["git", "-C", str(target)]
     history = subprocess.run(
         [*git, "log", "--format=%s"], check=True, capture_output=True, text=True
     ).stdout
-    assert history.splitlines() == ["Initialize Open Model Factory project"]
+    assert history.splitlines() == ["Initialize OpenFoundry project"]
     status = subprocess.run(
         [*git, "status", "--porcelain"], check=True, capture_output=True, text=True
     ).stdout
     assert status == ""
-    entrypoint = (target / ".venv/bin/omf").read_text(encoding="utf-8").splitlines()[0]
+    entrypoint = (target / ".venv/bin/openfoundry").read_text(encoding="utf-8").splitlines()[0]
     assert "/proc/self/fd/" not in entrypoint
     assert "/dev/fd/" not in entrypoint
 
@@ -405,14 +415,14 @@ def test_directory_installer_is_idempotent_and_rebuilds_only_its_managed_venv(tm
         text=True,
         env=environment,
     )
-    assert "Open Model Factory is ready" in second.stdout
+    assert "OpenFoundry is ready" in second.stdout
     assert (target / "AGENTS.md").read_text(encoding="utf-8") == agents
     assert (target / ".gitignore").read_text(encoding="utf-8") == gitignore
     assert (target / "MODEL_CARD.md").read_text(encoding="utf-8") == model_card
     assert (target / ".venv").stat().st_ino != first_venv_inode
-    assert len(list((target / ".omf-venvs").iterdir())) == 1
-    assert not list(target.glob(".venv.omf-link-*"))
-    assert not list(target.glob(".venv.omf-old-*"))
+    assert len(list((target / ".openfoundry-venvs").iterdir())) == 1
+    assert not list(target.glob(".venv.openfoundry-link-*"))
+    assert not list(target.glob(".venv.openfoundry-old-*"))
 
     fail_cleanup.touch()
     third = subprocess.run(
@@ -422,10 +432,10 @@ def test_directory_installer_is_idempotent_and_rebuilds_only_its_managed_venv(tm
         text=True,
         env=environment,
     )
-    assert "previous OMF environment cleanup was deferred" in third.stderr
+    assert "previous OpenFoundry environment cleanup was deferred" in third.stderr
     assert (target / ".venv").is_symlink()
-    assert (target / ".venv/.omf-managed").is_file()
-    assert len(list((target / ".omf-venvs").iterdir())) == 2
+    assert (target / ".venv/.openfoundry-managed").is_file()
+    assert len(list((target / ".openfoundry-venvs").iterdir())) == 2
 
 
 def test_directory_installer_never_follows_a_swapped_target_path(tmp_path):
@@ -459,10 +469,10 @@ def test_directory_installer_never_follows_a_swapped_target_path(tmp_path):
     assert result.returncode == 1
     assert "target pathname changed during installation" in result.stderr
     assert not list(outside.iterdir())
-    assert (relocated / "omf.yaml").is_file()
+    assert (relocated / "openfoundry.yaml").is_file()
     assert (relocated / ".venv").is_symlink()
-    assert (relocated / ".venv/.omf-managed").is_file()
-    entrypoint = (relocated / ".venv/bin/omf").read_text(encoding="utf-8").splitlines()[0]
+    assert (relocated / ".venv/.openfoundry-managed").is_file()
+    entrypoint = (relocated / ".venv/bin/openfoundry").read_text(encoding="utf-8").splitlines()[0]
     assert "/proc/self/fd/" not in entrypoint
     assert "/dev/fd/" not in entrypoint
 
@@ -503,18 +513,18 @@ def test_interruption_after_venv_switch_never_deletes_active_environment(tmp_pat
     assert result.returncode == 1
     assert "could not atomically activate" in result.stderr
     assert (target / ".venv").is_symlink()
-    assert (target / ".venv/.omf-managed").is_file()
-    assert len(list((target / ".omf-venvs").iterdir())) == 1
+    assert (target / ".venv/.openfoundry-managed").is_file()
+    assert len(list((target / ".openfoundry-venvs").iterdir())) == 1
 
 
 def test_rendered_project_templates_match_resource_contracts():
     registry = SchemaRegistry()
     replacements = {
-        "__OMF_PROJECT_NAME__": "installed-factory",
-        "__OMF_PROJECT_NAMESPACE__": "local/installed-factory",
+        "__OPENFOUNDRY_PROJECT_NAME__": "installed-factory",
+        "__OPENFOUNDRY_PROJECT_NAMESPACE__": "local/installed-factory",
     }
     templates = [
-        Path("templates/project/omf.yaml"),
+        Path("templates/project/openfoundry.yaml"),
         Path("templates/project/bindings/local.yaml"),
         Path("templates/project/policies/default.yaml"),
     ]
@@ -534,8 +544,8 @@ def test_operator_guide_is_bounded_and_actionable():
     assert root_guide.is_file()
     assert "AGENTS.md" in root_names
     assert "agents.md" not in root_names
-    assert guide.count("<!-- BEGIN OMF OPERATOR GUIDE -->") == 1
-    assert guide.count("<!-- END OMF OPERATOR GUIDE -->") == 1
+    assert guide.count("<!-- BEGIN OpenFoundry OPERATOR GUIDE -->") == 1
+    assert guide.count("<!-- END OpenFoundry OPERATOR GUIDE -->") == 1
     assert len(guide.splitlines()) <= 100
 
 

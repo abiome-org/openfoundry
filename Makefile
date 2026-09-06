@@ -30,7 +30,7 @@ test:
 	$(PYTHON) -m pytest $(TEST_ARGS)
 
 test-all: check
-	$(PYTHON) -m pytest --cov=omf --cov-report=term $(TEST_ARGS)
+	$(PYTHON) -m pytest --cov=openfoundry --cov-report=term $(TEST_ARGS)
 
 build:
 	$(PYTHON) -m build --no-isolation

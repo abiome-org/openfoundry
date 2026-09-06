@@ -10,9 +10,9 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 import pytest
 from botocore.config import Config
-from omf.artifacts import ArtifactManifest, ChunkDescriptor
-from omf.errors import ConflictError, IntegrityError, NotFoundError
-from omf.stores.s3 import S3Store
+from openfoundry.artifacts import ArtifactManifest, ChunkDescriptor
+from openfoundry.errors import ConflictError, IntegrityError, NotFoundError
+from openfoundry.stores.s3 import S3Store
 
 
 class _ObjectStore(BaseHTTPRequestHandler):
@@ -156,7 +156,7 @@ def test_s3_optional_dependency_error():
             "-c",
             (
                 "import sys\nsys.modules['boto3'] = None\n"
-                "from omf.stores.s3 import S3Store\nS3Store('bucket')"
+                "from openfoundry.stores.s3 import S3Store\nS3Store('bucket')"
             ),
         ],
         check=False,

@@ -3,12 +3,12 @@ import subprocess
 import sys
 
 import pytest
-from omf.script_runner import run
-from omf.sdk import ProtocolRequest
+from openfoundry.script_runner import run
+from openfoundry.sdk import ProtocolRequest
 
 
 def request(tmp_path, monkeypatch, script, **config):
-    monkeypatch.setenv("OMF_RESULT_FILE", str(tmp_path / "result.json"))
+    monkeypatch.setenv("OPENFOUNDRY_RESULT_FILE", str(tmp_path / "result.json"))
     source = tmp_path / "script.py"
     source.write_text(script)
     return ProtocolRequest(

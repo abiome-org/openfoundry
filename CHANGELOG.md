@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Rebrand the repository, CLI, Python package, configuration, protocols, and
+  environment variables to OpenFoundry. This is a breaking rename without
+  automatic state migration; see the operations runbook before upgrading.
+
 - Restore artifact-backed inference state to usable file/directory paths in both
   compatibility checks and service deployments. Exercise serving from saved weights.
 - Preserve directory artifact roots when they contain a file named `payload`,
@@ -27,7 +31,7 @@
   enforced. Pin deployments to exact releases and recheck requirements on
   rollback. Aliases work for deployment and refinement inputs. Remove
   caller-supplied approvals and manufactured release claims.
-- Use `omf.release/v2` manifests and action catalog version 2. Existing runs,
+- Use `openfoundry.release/v2` manifests and action catalog version 2. Existing runs,
   datasets, and artifacts remain intact. Recreate older releases from recorded
   runs before promotion/deployment. Remove legacy `unsignedModules`, `sync`, and
   `promotion.requireCompleteLineage` policy keys before upgrading.
@@ -46,7 +50,7 @@
 
 ## 1.0.0 — 2026-09-03
 
-Open Model Factory 1.0 establishes the repository-centered model-development
+OpenFoundry 1.0 establishes the repository-centered model-development
 loop: start or adopt a model card, admit model and data code, run and recover
 portable workloads, compare measured candidates, and govern release and local
 deployment without a proprietary control plane.
@@ -54,11 +58,11 @@ deployment without a proprietary control plane.
 The release adds identity-preserving backup and restore, checksummed database
 migrations, interrupted-run attachment without hidden replay, independent
 training and serving compatibility, live data-rights checks, attributable
-feedback approval, and the stable `omf.executor/v1` plugin API. Candidate builds
+feedback approval, and the stable `openfoundry.executor/v1` plugin API. Candidate builds
 are reproducible and rehearsed from wheel and source archives with checksums,
 SPDX SBOM, provenance, vulnerability review, and an external signing hook.
 
-Existing `omf.dev/v1alpha1` resources remain accepted. Early model packages
+Existing `openfoundry.dev/v1alpha1` resources remain accepted. Early model packages
 whose inference reference points to a training stage remain readable, but they
 must be revised to name an independent inference module before producing new
 release evidence.

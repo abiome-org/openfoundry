@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 import yaml
-from omf.errors import IntegrityError, ValidationError
-from omf.workloads import AdmittedWorkload, RunState, Stage, StateStore, project_workload
+from openfoundry.errors import IntegrityError, ValidationError
+from openfoundry.workloads import AdmittedWorkload, RunState, Stage, StateStore, project_workload
 
 
 def test_cycle_retry_and_state(tmp_path):

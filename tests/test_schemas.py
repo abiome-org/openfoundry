@@ -3,9 +3,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from omf.errors import ValidationError
-from omf.models import Metadata, finalize_resource
-from omf.schema_registry import SchemaRegistry
+from openfoundry.errors import ValidationError
+from openfoundry.models import Metadata, finalize_resource
+from openfoundry.schema_registry import SchemaRegistry
 
 
 def _object_value(schema, root):
@@ -72,7 +72,7 @@ def test_schema_rejects_wrong_kind_top_level_and_naive_time():
 
 def test_finalization_excludes_status_and_does_not_mutate():
     source = {
-        "apiVersion": "omf.dev/v1alpha1",
+        "apiVersion": "openfoundry.dev/v1alpha1",
         "kind": "X",
         "metadata": {"name": "x", "namespace": "n"},
         "spec": {"a": 1},

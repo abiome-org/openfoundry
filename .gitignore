@@ -1,5 +1,5 @@
-# Open Model Factory local runtime and caches
-.omf/
+# OpenFoundry local runtime and caches
+.openfoundry/
 .amp/portals/*
 
 # Data payloads are content-addressed outside Git. Manifests remain tracked.
@@ -31,3 +31,9 @@ build/
 .DS_Store
 .idea/
 .vscode/
+
+# Keep pre-rebrand runtime data and managed environments out of Git.
+.omf/
+.omf-venvs/
+.venv.omf-link-*
+.venv.omf-old-*/

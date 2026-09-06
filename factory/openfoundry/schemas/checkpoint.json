@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "x-openfoundry-kind": "Checkpoint",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "openfoundry.dev/v1alpha1"},
+    "kind": {"const": "Checkpoint"},
+    "metadata": {"$ref": "#/$defs/metadata"},
+    "spec": {
+      "type": "object",
+      "required": ["runRef", "artifactRef", "components"],
+      "properties": {
+        "runRef": {"type": "string", "minLength": 1},
+        "artifactRef": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "components": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {"pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        },
+        "extensions": {"$ref": "#/$defs/extension"}
+      },
+      "additionalProperties": false
+    },
+    "status": {"type": "object"}
+  },
+  "additionalProperties": false
+}

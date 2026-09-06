@@ -2,10 +2,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 
 import pytest
-from omf.database import Database
-from omf.errors import IntegrityError, NotFoundError
-from omf.events import EventStore
-from omf.security import SigningIdentity
+from openfoundry.database import Database
+from openfoundry.errors import IntegrityError, NotFoundError
+from openfoundry.events import EventStore
+from openfoundry.security import SigningIdentity
 
 
 def _store(tmp_path, name="events"):
@@ -17,13 +17,13 @@ def _store(tmp_path, name="events"):
 def _append(store, **kwargs):
     values = {
         "type": "RunStateChanged",
-        "source": "omf://test",
+        "source": "openfoundry://test",
         "subject": "run/one",
         "resource_uid": "resource-one",
         "revision": "sha256:" + "a" * 64,
         "actor": "tester",
         "data": {"state": "Running"},
-        "dataschema": "omf.dev/events/run-state/v1",
+        "dataschema": "openfoundry.dev/events/run-state/v1",
         "run_id": "run-one",
     }
     values.update(kwargs)

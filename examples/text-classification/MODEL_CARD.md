@@ -2,7 +2,7 @@
 
 Detect English-language SMS spam with a small CPU model. Prioritize spam F1 and
 keep precision above 95% to limit false alarms. Acceptance criteria and candidate
-choices live in `experiment.yaml`; measured results come from OMF.
+choices live in `experiment.yaml`; measured results come from OpenFoundry.
 
 Data: Almeida & Hidalgo (2011), [UCI SMS Spam Collection](https://doi.org/10.24432/C5CC84),
 CC BY 4.0. Preparation normalizes whitespace and case for deduplication, drops

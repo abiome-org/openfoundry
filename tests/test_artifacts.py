@@ -1,9 +1,9 @@
 import io
 
 import pytest
-from omf.artifacts import ArtifactBuilder, AtomicCheckpointPublisher, TreeEntry
-from omf.errors import ConflictError, IntegrityError, ValidationError
-from omf.stores.filesystem import FilesystemStore
+from openfoundry.artifacts import ArtifactBuilder, AtomicCheckpointPublisher, TreeEntry
+from openfoundry.errors import ConflictError, IntegrityError, ValidationError
+from openfoundry.stores.filesystem import FilesystemStore
 
 
 @pytest.mark.parametrize("logical_kind", ["directory", "model", "checkpoint-shard"])

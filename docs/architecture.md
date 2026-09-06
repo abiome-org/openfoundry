@@ -1,6 +1,6 @@
 # Architecture
 
-OMF turns an evolving model project into durable, usable model versions.
+OpenFoundry turns an evolving model project into durable, usable model versions.
 The unit of work is a run; the product is a model with enough recorded context
 to evaluate it, reproduce it, extend it, and use it. Agents own development
 strategy. The factory owns the history and execution of that work.
@@ -70,7 +70,7 @@ interpreter, inherited package inventory, and options in their identity.
 completion. `run_worker.py` and `serve_worker.py` detach control and inference
 from the caller's session. See [executors](executors.md) for the plugin contract.
 
-Git holds code and configuration; stores hold data and models; `.omf/` holds
+Git holds code and configuration; stores hold data and models; `.openfoundry/` holds
 untracked runtime state. Uncommitted source is captured by default. Captured
 bytes and exact resource references, rather than a mutable checkout or alias,
 determine admitted work and release contents.
@@ -87,9 +87,9 @@ determine admitted work and release contents.
 - Unknown or incapable executors fail before allocation. No implicit local fallback.
 - Secrets and operation/event payloads stay out of bounded agent views. Incremental
   cursors preserve progress without skipping omitted events.
-- A scanner report is imported evidence. OMF does not invent a scan, reviewer,
+- A scanner report is imported evidence. OpenFoundry does not invent a scan, reviewer,
   SBOM, deployment compatibility, or rollback guarantee.
 
-OMF 2 uses `omf.release/v2` manifests and action catalog version 2. Earlier run
+OpenFoundry 2 uses `openfoundry.release/v2` manifests and action catalog version 2. Earlier run
 and data history remains readable; recreate releases from recorded runs for
 new promotion and deployment. See [operations](operations.md) for upgrade steps.

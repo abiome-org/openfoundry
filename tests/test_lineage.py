@@ -2,9 +2,9 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
 import pytest
-from omf.database import Database
-from omf.errors import ConflictError, ValidationError
-from omf.lineage import LineageEdge, LineageStore
+from openfoundry.database import Database
+from openfoundry.errors import ConflictError, ValidationError
+from openfoundry.lineage import LineageEdge, LineageStore
 
 
 def test_traversal_depth_impact_and_run(tmp_path):

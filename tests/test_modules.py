@@ -5,8 +5,8 @@ import tarfile
 
 import pytest
 import yaml
-from omf.errors import ConfigurationError, ValidationError
-from omf.modules import (
+from openfoundry.errors import ConfigurationError, ValidationError
+from openfoundry.modules import (
     extract_module_package,
     git_source,
     load_manifest,

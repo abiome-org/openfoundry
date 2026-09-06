@@ -1,8 +1,0 @@
-apiVersion: omf.dev/v1alpha1
-kind: Project
-metadata:
-  name: open-model-factory
-  namespace: local/open-model-factory
-spec:
-  owners:
-    - local-user

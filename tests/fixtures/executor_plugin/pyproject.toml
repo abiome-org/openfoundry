@@ -3,13 +3,13 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "omf-stable-executor-test-plugin"
+name = "openfoundry-stable-executor-test-plugin"
 version = "1.0.0"
 requires-python = ">=3.11,<3.13"
-dependencies = ["open-model-factory>=2,<3"]
+dependencies = ["openfoundry>=2,<3"]
 
-[project.entry-points."omf.executors"]
-stable-test = "omf_stable_executor:provider"
+[project.entry-points."openfoundry.executors"]
+stable-test = "openfoundry_stable_executor:provider"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/omf_stable_executor"]
+packages = ["src/openfoundry_stable_executor"]

@@ -1,0 +1,8 @@
+apiVersion: openfoundry.dev/v1alpha1
+kind: Project
+metadata:
+  name: openfoundry
+  namespace: local/openfoundry
+spec:
+  owners:
+    - local-user

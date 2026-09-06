@@ -1,10 +1,10 @@
-# __OMF_PROJECT_NAME__ model card
+# __OPENFOUNDRY_PROJECT_NAME__ model card
 
 **Status:** Draft
-**Project namespace:** `__OMF_PROJECT_NAMESPACE__`
+**Project namespace:** `__OPENFOUNDRY_PROJECT_NAMESPACE__`
 
 Keep this card concise and update it when intent or measured evidence changes.
-Link to versioned OMF resources and immutable results instead of copying them.
+Link to versioned OpenFoundry resources and immutable results instead of copying them.
 
 ## Purpose
 

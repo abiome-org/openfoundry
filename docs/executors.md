@@ -8,8 +8,8 @@ providers are installed plugins.
 ## Discover and preflight
 
 ```sh
-omf executor list
-omf executor preflight bindings/local.yaml --workload workloads/train.yaml
+openfoundry executor list
+openfoundry executor preflight bindings/local.yaml --workload workloads/train.yaml
 ```
 
 The catalog reports each provider's source, capabilities, and configuration
@@ -20,22 +20,22 @@ unready provider is an error, never a fallback to local.
 
 ## Capabilities
 
-A provider may advertise `omf.module/v1` only when it carries the complete
+A provider may advertise `openfoundry.module/v1` only when it carries the complete
 protocol across its execution boundary:
 
 | Capability | Required behavior |
 | --- | --- |
-| `protocol:omf.module/v1` | Preserve the request and result exactly |
+| `protocol:openfoundry.module/v1` | Preserve the request and result exactly |
 | `transport:module-source` | Make the exact admitted source package available to the worker |
 | `transport:request-result` | Deliver `request.json`; retrieve `result.json` before success |
 | `transport:artifacts` | Retrieve declared artifacts into the stage run directory |
 | `isolation:network-deny` | Actually deny network egress; every module run requires it |
-| `protocol:omf.deployment/v1` | Run deployment commands and serving workers |
+| `protocol:openfoundry.deployment/v1` | Run deployment commands and serving workers |
 
 The local provider adds `environment:executable-drift-detection` (the worker
 re-hashes the module's interpreter immediately before exec and records the
 digest) and `environment:dependency-lock-realization` (hash-pinned locks are
-installed into cached virtual environments under `.omf/environments/`, keyed
+installed into cached virtual environments under `.openfoundry/environments/`, keyed
 by lock, interpreter, inherited environment, and options, with the interpreter's site directories
 layered after the lock). Neither is a byte-sealed runtime closure.
 
@@ -52,11 +52,11 @@ install lock contents from a local wheel directory and
 
 ## Writing a provider
 
-`omf.executor/v1` is the stable plugin boundary. A provider package exports
-one `ExecutorProvider` through the `omf.executors` entry-point group:
+`openfoundry.executor/v1` is the stable plugin boundary. A provider package exports
+one `ExecutorProvider` through the `openfoundry.executors` entry-point group:
 
 ```python
-from omf.executors import (
+from openfoundry.executors import (
     EXECUTOR_API_VERSION,
     MODULE_PROTOCOL_CAPABILITIES,
     ExecutorContext,
@@ -85,8 +85,8 @@ provider = ExecutorProvider(
 ```
 
 ```toml
-[project.entry-points."omf.executors"]
-remote = "omf_remote.provider:provider"
+[project.entry-points."openfoundry.executors"]
+remote = "openfoundry_remote.provider:provider"
 ```
 
 The registry validates the binding's `spec.config` against `config_contract`
@@ -98,7 +98,7 @@ options, and requires the entry-point name to match the provider name. The
 id; `recover` returns `None` only when no allocation happened and raises when
 the outcome is ambiguous; status and logs must survive a controller restart.
 A remote provider must stage the exact working directory and request, set
-`OMF_REQUEST_FILE`, `OMF_RESULT_FILE`, and `OMF_RUN_ID` remotely, retrieve the
+`OPENFOUNDRY_REQUEST_FILE`, `OPENFOUNDRY_RESULT_FILE`, and `OPENFOUNDRY_RUN_ID` remotely, retrieve the
 result, logs, and declared artifacts before reporting success, and report
 failure rather than fabricate a result.
 

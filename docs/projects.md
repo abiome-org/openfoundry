@@ -1,15 +1,15 @@
 # Projects
 
-A project is a Git repository with an `omf.yaml` at its root. Everything OMF
+A project is a Git repository with an `openfoundry.yaml` at its root. Everything OpenFoundry
 knows about the project lives either in versioned files next to it or in the
-untracked `.omf/` directory.
-Without `--project`, OMF finds the nearest parent `omf.yaml`. An explicit
+untracked `.openfoundry/` directory.
+Without `--project`, OpenFoundry finds the nearest parent `openfoundry.yaml`. An explicit
 `--project` selects that directory exactly.
 
 ## The project manifest
 
 ```yaml
-apiVersion: omf.dev/v1alpha1
+apiVersion: openfoundry.dev/v1alpha1
 kind: Project
 metadata:
   name: my-model
@@ -19,15 +19,15 @@ spec:
 ```
 
 `metadata.namespace` is the identity every resource in the project carries.
-Other manifests may omit their namespace; OMF stamps the project namespace when
+Other manifests may omit their namespace; OpenFoundry stamps the project namespace when
 it loads them, and it rejects a manifest that names a different one. `owners`
 is optional; the first owner becomes the actor of the local API token that
-`omf bootstrap` creates. `spec.extensions.policyDirectory` changes where policy
+`openfoundry bootstrap` creates. `spec.extensions.policyDirectory` changes where policy
 documents are read from (default `policies`).
 
 ## Local state
 
-`omf bootstrap` creates `.omf/` with a restrictive umask:
+`openfoundry bootstrap` creates `.openfoundry/` with a restrictive umask:
 
 | Path | Content |
 | --- | --- |
@@ -39,17 +39,17 @@ documents are read from (default `policies`).
 | `environments/` | Realized dependency-lock environments |
 | `operations/` | Locks and logs of detached operations |
 
-Never edit or commit `.omf/`. `omf doctor` checks the host, the project, the
+Never edit or commit `.openfoundry/`. `openfoundry doctor` checks the host, the project, the
 database and its migration history, identity, stores, and policy loading, and
-reports each finding with a remediation. `omf admin backup` and
-`omf admin restore` move the whole directory as one signed archive; see
+reports each finding with a remediation. `openfoundry admin backup` and
+`openfoundry admin restore` move the whole directory as one signed archive; see
 [operations](operations.md).
 
 ## Actors
 
 Every mutation is attributed to an actor. The CLI and Python API default to the
 first configured project owner, or `local-user` when no owner is set. Use
-`omf --actor <identity> ...` to select an existing policy identity explicitly;
+`openfoundry --actor <identity> ...` to select an existing policy identity explicitly;
 HTTP uses the token's actor. Replace the scaffold's `local-user`
 before sharing a project and issue separate scoped tokens to other operators.
 
@@ -61,7 +61,7 @@ every actor; a project with them denies any action no rule allows and records
 the denial as a signed `PolicyDecisionRecorded` event.
 
 ```yaml
-apiVersion: omf.dev/v1alpha1
+apiVersion: openfoundry.dev/v1alpha1
 kind: Policy
 metadata:
   name: default
@@ -96,12 +96,12 @@ experiment revision that justified them.
 ## Inspecting a project
 
 ```sh
-omf doctor
-omf agent context
-omf resource list --kind WorkloadSpec
-omf runs list
-omf release list
-omf deployment list
+openfoundry doctor
+openfoundry agent context
+openfoundry resource list --kind WorkloadSpec
+openfoundry runs list
+openfoundry release list
+openfoundry deployment list
 ```
 
 `--output table` (the default) prints aligned columns for lists and YAML for

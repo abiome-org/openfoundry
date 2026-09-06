@@ -2,9 +2,15 @@ import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from omf.database import Database
-from omf.errors import ConflictError, IntegrityError
-from omf.security import ApiTokenStore, SecretStore, SigningIdentity, import_trust_bundle, verify
+from openfoundry.database import Database
+from openfoundry.errors import ConflictError, IntegrityError
+from openfoundry.security import (
+    ApiTokenStore,
+    SecretStore,
+    SigningIdentity,
+    import_trust_bundle,
+    verify,
+)
 
 
 def test_sign_verify_bundle_and_tamper(tmp_path):

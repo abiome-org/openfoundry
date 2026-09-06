@@ -12,7 +12,7 @@ make test TEST_ARGS='tests/test_agent.py -q'
 ```
 
 Setup finds Python 3.11 or 3.12, creates `.venv/`, installs hash-locked
-dependencies into a local wheel cache, and installs OMF in editable mode.
+dependencies into a local wheel cache, and installs OpenFoundry in editable mode.
 Installation tests use that cache to build isolated environments without
 network access or dependencies inherited from system Python. Setup preserves an
 existing environment and does not modify system Python or Git hooks. To select an
