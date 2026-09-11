@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -79,12 +80,48 @@ def _dirty_worktree(value: Any) -> Any:
     return value
 
 
+def _thresholds(value: Any) -> Any:
+    if not isinstance(value, dict):
+        raise ValidationError("policy promotion thresholds must map metric names to bounds")
+    validated: dict[str, dict[str, float]] = {}
+    for metric, bounds in value.items():
+        if not isinstance(metric, str) or not metric:
+            raise ValidationError("policy promotion threshold metric names must be non-empty")
+        if not isinstance(bounds, dict) or set(bounds) - {"minimum", "maximum"}:
+            raise ValidationError(
+                f"policy promotion threshold {metric!r} accepts only minimum/maximum"
+            )
+        converted = {}
+        for bound, number in bounds.items():
+            if isinstance(number, bool) or not isinstance(number, (int, float)):
+                raise ValidationError(
+                    f"policy promotion threshold {metric!r}.{bound} must be a number"
+                )
+            converted[bound] = float(number)
+        if (
+            "minimum" in converted
+            and "maximum" in converted
+            and converted["minimum"] > converted["maximum"]
+        ):
+            raise ValidationError(f"policy promotion threshold {metric!r} minimum exceeds maximum")
+        validated[metric] = converted
+    return validated
+
+
 def _promotion(value: Any) -> Any:
-    allowed = {"requireEvaluationPass", "requireCompatibilityPass", "requireVulnerabilityScan"}
+    allowed = {
+        "requireEvaluationPass",
+        "requireCompatibilityPass",
+        "requireVulnerabilityScan",
+        "thresholds",
+    }
     if not isinstance(value, dict) or set(value) - allowed:
         raise ValidationError(f"policy promotion accepts only {', '.join(sorted(allowed))}")
-    if any(not isinstance(item, bool) for item in value.values()):
-        raise ValidationError("policy promotion requirements must be booleans")
+    for key, item in value.items():
+        if key == "thresholds":
+            value = {**value, "thresholds": _thresholds(item)}
+        elif not isinstance(item, bool):
+            raise ValidationError("policy promotion requirements must be booleans")
     return dict(value)
 
 
@@ -210,6 +247,21 @@ def promotion_gate(
             name == "vulnerabilities" and evidence.get("vulnerabilities_present")
         ):
             checks[name] = bool(evidence.get(evidence_key))
+    thresholds = requirements.get("thresholds") or {}
+    scores = evidence.get("metric_scores") or {}
+    for metric, bounds in thresholds.items():
+        value = scores.get(metric)
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
+            checks[f"threshold:{metric}"] = False
+            continue
+        number = float(value)
+        checks[f"threshold:{metric}"] = (bounds.get("minimum", number) <= number) and (
+            number <= bounds.get("maximum", number)
+        )
     explanations = tuple(
         {"rule": name, "effect": "allow" if passed else "deny", "reason": "release evidence"}
         for name, passed in checks.items()

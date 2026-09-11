@@ -67,6 +67,7 @@ def _subject(service: ExperimentService, run_id: str) -> dict[str, Any]:
         parameters = metadata.get("candidateParams", {})
     outputs = result["spec"]["outputs"]
     run = service.factory._run_resource(run_id)
+    evaluation_inputs = _evaluation_inputs(service, run)
     return {
         "runId": run_id,
         "name": candidate,
@@ -78,7 +79,8 @@ def _subject(service: ExperimentService, run_id: str) -> dict[str, Any]:
         "sources": metadata["sources"],
         "outputs": outputs,
         "datasets": run["spec"]["extensions"]["admittedInputs"],
-        "evaluationInputs": _evaluation_inputs(service, run),
+        "evaluationInputs": evaluation_inputs,
+        "dataExposure": _data_exposure(definition, evaluation_inputs),
         "measurement": _measurements(service, outputs),
         "reproduce": {
             "runRef": service.factory._resource_uri(run),
@@ -87,6 +89,19 @@ def _subject(service: ExperimentService, run_id: str) -> dict[str, Any]:
             "environments": result["spec"]["admission"]["environments"],
             "definitionDigest": metadata["definitionDigest"],
         },
+    }
+
+
+def _data_exposure(definition: dict[str, Any], evaluation_inputs: dict[str, Any]) -> dict[str, Any]:
+    """Development vs independent evidence: eval datasets disjoint from train datasets."""
+    data_keys = set(definition.get("data", {}))
+    train_inputs = definition.get("train", {}).get("inputs")
+    train_datasets = sorted(set(train_inputs) if train_inputs is not None else data_keys)
+    eval_datasets = sorted(evaluation_inputs.get("datasets", {}))
+    return {
+        "trainDatasets": train_datasets,
+        "evalDatasets": eval_datasets,
+        "heldOut": bool(eval_datasets) and not (set(train_datasets) & set(eval_datasets)),
     }
 
 
@@ -307,7 +322,9 @@ def summarize_review(report: dict[str, Any]) -> dict[str, Any]:
                     "parameters",
                     "scores",
                     "measurement",
+                    "dataExposure",
                 )
+                if key in subject
             }
             if subject
             else None

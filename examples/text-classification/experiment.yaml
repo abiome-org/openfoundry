@@ -22,10 +22,10 @@ evaluate:
   metrics: metrics.json
   examples: examples.json
 metrics:
-  spam_f1: {minimum: 0.90}
-  spam_precision: {minimum: 0.95, maxRegression: 0.01}
-  spam_recall: {minimum: 0.85}
-  accuracy: {minimum: 0.97}
+  spam_f1: {}
+  spam_precision: {maxRegression: 0.01}
+  spam_recall: {}
+  accuracy: {}
 primaryMetric: spam_f1
 baseline: baseline
 candidates:

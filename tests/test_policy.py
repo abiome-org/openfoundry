@@ -77,6 +77,9 @@ def test_project_policy_without_documents_allows_and_records_no_enforcement(tmp_
         ({"sync": {"allowDelete": True}}, "not enforced"),
         ({"sync": {"retries": 3}}, "not enforced"),
         ({"promotion": {"requireEvaluationPass": "yes"}}, "boolean"),
+        ({"promotion": {"thresholds": {"accuracy": {"min": 0.5}}}}, "minimum/maximum"),
+        ({"promotion": {"thresholds": {"accuracy": "high"}}}, "minimum/maximum"),
+        ({"promotion": {"thresholds": {"accuracy": {"minimum": 0.9, "maximum": 0.1}}}}, "exceeds"),
         ({"retention": {"days": 3}}, "not enforced"),
     ],
 )
@@ -132,3 +135,43 @@ def test_promotion_requires_integrity_and_respects_project_quality_requirements(
 def test_policy_cannot_silently_ignore_a_misspelled_actor_constraint():
     with pytest.raises(ValidationError, match="actro"):
         PolicyEngine([PolicyRule("owner-only", "allow", {"actro": "owner"})])
+
+
+def test_promotion_thresholds_gate_on_recorded_scores():
+    evidence = {
+        "lineage_complete": True,
+        "rights_valid": True,
+        "evaluation_passed": True,
+        "metric_scores": {"accuracy": 0.9},
+    }
+    assert (
+        promotion_gate(evidence, {"thresholds": {"accuracy": {"minimum": 0.8}}}).outcome == "allow"
+    )
+    assert (
+        promotion_gate(evidence, {"thresholds": {"accuracy": {"minimum": 0.95}}}).outcome == "deny"
+    )
+    assert (
+        promotion_gate(evidence, {"thresholds": {"accuracy": {"maximum": 0.95}}}).outcome == "allow"
+    )
+    assert promotion_gate(evidence, {"thresholds": {"missing": {"minimum": 0.1}}}).outcome == "deny"
+    assert (
+        promotion_gate(
+            {**evidence, "metric_scores": {"accuracy": True}},
+            {"thresholds": {"accuracy": {"minimum": 0.1}}},
+        ).outcome
+        == "deny"
+    )
+
+
+def test_promotion_thresholds_reject_non_finite_scores():
+    evidence = {
+        "lineage_complete": True,
+        "rights_valid": True,
+        "evaluation_passed": True,
+    }
+    for score in (float("inf"), float("-inf"), float("nan")):
+        gated = promotion_gate(
+            {**evidence, "metric_scores": {"accuracy": score}},
+            {"thresholds": {"accuracy": {"minimum": 0.1}}},
+        )
+        assert gated.outcome == "deny"

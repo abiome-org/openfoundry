@@ -41,12 +41,6 @@
               "output": {
                 "type": "string",
                 "minLength": 1
-              },
-              "minimum": {
-                "type": "number"
-              },
-              "maximum": {
-                "type": "number"
               }
             },
             "additionalProperties": false

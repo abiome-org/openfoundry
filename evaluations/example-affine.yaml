@@ -6,7 +6,5 @@ spec:
   metrics:
     - name: training-loss
       output: train.loss
-      maximum: 0.000001
     - name: parameter-check
       output: evaluate.passed
-      minimum: 1.0

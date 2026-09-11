@@ -118,6 +118,11 @@ class PublishingService:
         data_uses = dataset_uses(project_workload(workload).stages)
         rights_valid = self.factory._input_rights_valid(datasets, data_uses)
         compatibility_passed = bool(evaluation_extensions.get("compatibilityPassed"))
+        metric_scores = {
+            name: value
+            for name, value in dict(evaluation_spec.get("scores", {})).items()
+            if not isinstance(value, bool) and isinstance(value, (int, float))
+        }
         evidence = {
             "evaluation_passed": bool(evaluation_extensions.get("passed")),
             "lineage_complete": bool(self.factory.lineage.by_run(run_id)),
@@ -125,6 +130,7 @@ class PublishingService:
             "compatibility_passed": compatibility_passed,
             "vulnerabilities_valid": vulnerabilities_valid,
             "vulnerabilities_present": vulnerability_report is not None,
+            "metric_scores": metric_scores,
         }
         decision = promotion_gate(evidence, self.factory.policy.config.get("promotion"))
         if promote and decision.outcome == "deny":
