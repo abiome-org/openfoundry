@@ -20,7 +20,7 @@ class RunControl:
             raise OperationCanceled("run cancellation requested")
 
     def request(self, operation_id: str, reason: str) -> dict[str, Any]:
-        from openfoundry.factory import _operation_lease
+        from openfoundry.run_support import _operation_lease
 
         self.factory._authorize("operation.cancel")
         operation = self.factory.operations.get(operation_id)

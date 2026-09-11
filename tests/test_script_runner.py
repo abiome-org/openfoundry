@@ -50,6 +50,8 @@ assert sys.argv[2:] == ["/materialized/data", "0.25"]
     measurement = json.loads((tmp_path / "measurement.json").read_text())
     assert measurement["wallSeconds"] > 0
     assert measurement["cpuSeconds"] >= 0
+    assert measurement["gpuSeconds"] == 0.0
+    assert measurement["monetaryCostUSD"] == 0.0
 
 
 @pytest.mark.parametrize(

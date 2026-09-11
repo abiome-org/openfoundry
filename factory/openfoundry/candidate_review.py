@@ -34,7 +34,16 @@ def _measurements(service: ExperimentService, outputs: dict[str, Any]) -> dict[s
         "stages": stages,
         "wallSeconds": sum(item["wallSeconds"] for item in stages.values()) if stages else None,
         "cpuSeconds": sum(item["cpuSeconds"] for item in stages.values()) if stages else None,
-        "monetaryCost": None,
+        "gpuSeconds": sum(float(item.get("gpuSeconds", 0.0)) for item in stages.values())
+        if stages
+        else None,
+        "monetaryCostUSD": sum(float(item.get("monetaryCostUSD", 0.0)) for item in stages.values())
+        if stages
+        else None,
+        # Legacy alias kept for one release; prefer monetaryCostUSD.
+        "monetaryCost": sum(float(item.get("monetaryCostUSD", 0.0)) for item in stages.values())
+        if stages
+        else None,
     }
 
 
