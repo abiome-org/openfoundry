@@ -32,6 +32,11 @@ class ScriptExperimentRequest(RequestModel):
     detach: bool = True
 
 
+class SearchExperimentRequest(RequestModel):
+    definition: str
+    detach: bool = True
+
+
 class ReproduceRequest(RequestModel):
     detach: bool = True
 
@@ -571,6 +576,20 @@ def _experiment_routes(app: FastAPI, authorized: Authorized) -> None:
         return service.run_control.request(operation_id, request.reason)
 
 
+def _search_routes(app: FastAPI, authorized: Authorized) -> None:
+    @_action_route(app, "experiment.search")
+    def experiment_search(
+        request: SearchExperimentRequest, service: Factory = Depends(authorized)
+    ) -> dict[str, Any]:
+        return service.experiments.run_search(request.definition, detach=request.detach)
+
+    @_action_route(app, "experiment.leaderboard")
+    def experiment_leaderboard(
+        definition: str, service: Factory = Depends(authorized)
+    ) -> dict[str, Any]:
+        return service.experiments.leaderboard(definition)
+
+
 def create_app(paths: ProjectPaths, *, executors: ExecutorRegistry | None = None) -> FastAPI:
     factory = Factory(paths, executors=executors)
 
@@ -600,6 +619,7 @@ def create_app(paths: ProjectPaths, *, executors: ExecutorRegistry | None = None
     _release_routes(app, paths, authorized)
     _admin_routes(app, authorized)
     _experiment_routes(app, authorized)
+    _search_routes(app, authorized)
     return app
 
 

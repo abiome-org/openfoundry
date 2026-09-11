@@ -73,6 +73,21 @@ _ACTIONS = (
         mutates=True,
     ),
     ActionDefinition(
+        "experiment.search",
+        "Expand a search sweep into trials and run them under the declared budget.",
+        "openfoundry experiment search <definition> [--detach]",
+        method="POST",
+        path="/v1/experiment-searches",
+        scope="write",
+        mutates=True,
+    ),
+    ActionDefinition(
+        "experiment.leaderboard",
+        "Rank experiment trials best-first by the primary metric.",
+        "openfoundry experiment leaderboard <definition>",
+        path="/v1/experiment-leaderboard",
+    ),
+    ActionDefinition(
         "experiment.list",
         "List experiment candidates and their recorded results.",
         "openfoundry experiment list [--name <name>]",
@@ -507,7 +522,7 @@ def capability_catalog(action: str | None = None) -> dict[str, Any]:
     selected = (action_definition(action),) if action is not None else _ACTIONS
     body = {
         "apiVersion": "openfoundry.agent/v1alpha1",
-        "catalogVersion": 2,
+        "catalogVersion": 3,
         "actions": [item.as_dict() for item in selected],
     }
     return {**body, "catalogDigest": sha256_digest(body)}

@@ -56,13 +56,16 @@ spec:
   resources:
     timeoutSeconds: 3600
     addressSpaceBytes: 8589934592
+    accelerators: {count: 0}
   config: {}
 ```
 
 `executor` names a provider from `openfoundry executor list`; an unknown provider is
 an error, never a fallback to local. `resources` are POSIX limits the local
-executor applies to every module process: `cpuSeconds`, `addressSpaceBytes`,
-`processes`, `fileSizeBytes`, and `timeoutSeconds`. `config` holds the
+executor applies to every module process (`cpuSeconds`, `addressSpaceBytes`,
+`processes`, `fileSizeBytes`, `timeoutSeconds`) plus scheduling and budget fields
+(`accelerators`, `memoryBytes`, `costLimitUSD`, `preemptible`). The local provider
+runs CPU-only and reports an issue when accelerators are requested. `config` holds the
 provider's own options, validated against the contract the provider
 publishes; the local provider accepts `dependencyWheelhouse` and
 `dependencyIndex` for lock realization.

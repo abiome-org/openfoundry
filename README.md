@@ -30,7 +30,8 @@ Install OpenFoundry into your environment, then run from your model project:
 openfoundry experiment init --name my-model --objective "Improve useful task performance" --source src
 # Edit experiment.yaml to name your scripts, data, outputs, metrics, and candidates.
 openfoundry experiment run experiment.yaml --candidate baseline
-openfoundry experiment run experiment.yaml --candidate candidate --detach
+openfoundry experiment search experiment.yaml
+openfoundry experiment leaderboard experiment.yaml
 openfoundry experiment list
 openfoundry experiment status <run-id>
 openfoundry experiment review <run-id> --baseline <baseline-id> --html review.html
@@ -58,8 +59,11 @@ development evidence. `openfoundry experiment schema` exposes the full definitio
 Runs survive agent sessions. Use `openfoundry operation reconcile <run-id>` to resume and
 `openfoundry operation cancel <run-id> --reason "Try another candidate"` to stop. Each stage
 has a wall timeout; local CPU, memory, process, and file-size limits use POSIX
-process limits. Measured wall/CPU time is reported separately from configured
-limits. Monetary cost is currently unmeasured.
+process limits. Bindings also carry accelerator requests, memory, cost caps, and
+preemptible flags; local runs CPU-only and reports an issue when accelerators are
+requested. Measured wall/CPU/GPU time and estimated cost are reported separately
+from configured limits. Candidates branch with `from: run/<id>` (or a checkpoint,
+release, or alias); a declared script `checkpoint` output is published for reuse.
 
 For MLflow, install `openfoundry[tracking]`, then run
 `openfoundry experiment track <run-id> --uri sqlite:///tracking.db` or use your tracking
@@ -77,7 +81,8 @@ openfoundry release promote v1 --alias candidate
 
 Releases preserve exact data, captured code, artifacts, and evaluation evidence.
 Failed evaluation does not prevent saving a version. Selection requires passing
-evaluation by default; projects can configure additional checks. See
+evaluation by default; projects configure metric thresholds and additional checks
+in promotion policy. See
 [releases](docs/releases.md) for policy and serving, or the
 [walkthrough](docs/walkthrough.md) for a complete workload lifecycle.
 `./install.sh /path/to/model-project` installs a runnable starter and operator

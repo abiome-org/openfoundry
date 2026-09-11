@@ -23,17 +23,20 @@ openfoundry experiment init --name my-model --objective "The user's task" --sour
 ```
 
 Edit `experiment.yaml` to name data, scripts, outputs, metrics, candidate
-parameters, and limits. A candidate with `from:` resumes training from a prior
-run, checkpoint, release, alias, or artifact; the train script declares `base`
-in `inputs` and receives it empty when the candidate trains from scratch.
-Scripts need no OpenFoundry imports. Source capture respects
-Git ignores and archives uncommitted edits by default. Dependency locks live
-inside each script's source directory. Custom stage graphs can use modules,
-workloads, evaluation specs, and bindings directly.
+parameters, and limits. Add a `search` block (grid/count, concurrency, budget)
+to sweep instead of hand-editing candidates, and `from: run/<id>` (or a
+checkpoint, release, or artifact) to branch a candidate from prior work; the
+train script declares `base` in `inputs` and receives it empty when the
+candidate trains from scratch. A train `checkpoint` path is published for
+reuse. Scripts need no OpenFoundry imports. Source capture respects Git ignores
+and archives uncommitted edits by default. Dependency locks live inside each
+script's source directory. Custom stage graphs can use modules, workloads,
+evaluation specs, and bindings directly.
 
 ```sh
 openfoundry experiment run experiment.yaml --candidate baseline
-openfoundry experiment run experiment.yaml --candidate candidate --detach
+openfoundry experiment search experiment.yaml
+openfoundry experiment leaderboard experiment.yaml
 openfoundry experiment list
 openfoundry experiment review <run-id> --baseline <baseline-id>
 openfoundry experiment reproduce <run-id>
@@ -42,10 +45,11 @@ openfoundry release create <run-id> --name v1 --intended-use "The user's task"
 openfoundry release promote v1 --alias candidate
 ```
 
-Inspect scores, regressions, changed examples, source/data revisions, and
-measured compute. Use `--details` for full review evidence. When an evaluator
-changes, inspect the comparison and remeasure as needed. Update the model card
-with conclusions and the evidence behind them.
+Inspect scores, regressions, held-out exposure, changed examples, source/data
+revisions, and measured compute and cost. Use `--details` for full review
+evidence. `review` ranks by the primary metric; pairwise diff is the detail view.
+When an evaluator changes, inspect the comparison and remeasure as needed. Update
+the model card with conclusions and the evidence behind them.
 
 After interruption, `openfoundry operation reconcile <run-id>` resumes admitted work;
 `openfoundry operation cancel <run-id> --reason "<reason>"` stops it. For alias moves
@@ -61,10 +65,11 @@ and shared context; secret input supports a hidden prompt or `--value-stdin`.
 
 Record each dataset's rights and its training or evaluation role. A release
 preserves a model and its evidence, including failed or missing evaluation.
-Promotion and deployment check current data rights, signatures, lineage, and
-project requirements. Evaluation must pass by default; compatibility and
-vulnerability scanning are additional project options. Record real scanner
-output when used. No invented reviewer or report is needed to save a version.
+Promotion and deployment check current data rights, signatures, lineage, metric
+thresholds, and project requirements. Evaluation must pass by default;
+compatibility, metric thresholds, and vulnerability scanning are additional
+project options. Record real scanner output when used. No invented reviewer or
+report is needed to save a version.
 
 Unknown or unready executors fail before allocation. Report only capabilities,
 recovery behavior, and scale supported by observed tests.
