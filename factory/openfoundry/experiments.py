@@ -214,8 +214,10 @@ class ExperimentService:
         Trials execute one at a time in deterministic expansion order even when
         search.concurrency > 1; concurrency is recorded as the declared budget
         for schedulers that honor it. budget.maxRuns caps expansion (already
-        enforced at validation); budget.maxCostUSD stops the sweep early once
-        measured spend exceeds it.
+        enforced at validation). Sequential runs stop early once measured spend
+        exceeds budget.maxCostUSD; detached runs launch every trial
+        concurrently and cannot observe per-trial costs, so budget.maxCostUSD
+        together with detach is rejected.
         """
         from openfoundry.experiment_definition import expand_search
 
@@ -225,6 +227,11 @@ class ExperimentService:
         search = definition.search
         if search is None:
             raise ValidationError("experiment definition declares no search")
+        if detach and search.budget.maxCostUSD is not None:
+            raise ValidationError(
+                "budget.maxCostUSD requires sequential trials; rerun the search without detach",
+                details={"budget": "maxCostUSD"},
+            )
         template = definition.candidates[search.template]
         trials = expand_search(search, template.parameters)
         max_cost = search.budget.maxCostUSD

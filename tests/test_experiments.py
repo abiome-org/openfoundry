@@ -789,3 +789,18 @@ def test_run_search_authorizes_experiment_search(tmp_path):
         with pytest.raises(AuthorizationError, match=r"'experiment.search'"):
             factory.experiments.run_search(definition)
         assert factory.experiments.list("regression") == []
+
+
+def test_run_search_rejects_cost_budget_with_detach(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {
+        "template": "baseline",
+        "grid": {"offset": [0, 1]},
+        "budget": {"maxCostUSD": 8.0},
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        with pytest.raises(ValidationError, match=r"budget\.maxCostUSD requires sequential trials"):
+            factory.experiments.run_search(definition, detach=True)
+        assert factory.experiments.list("regression") == []
