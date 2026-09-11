@@ -1,8 +1,10 @@
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
+import pytest
 import yaml
 from openfoundry.cli import app
 from openfoundry.config import ProjectPaths
@@ -60,6 +62,8 @@ spec: {owners: [local-user], extensions: {}}
 
 
 def test_cli_complete_local_lifecycle(tmp_path):
+    if sys.platform == "darwin":
+        pytest.skip("deny-stage lifecycle needs user namespaces; unavailable on macOS")
     root = _full_project(tmp_path)
     runner = CliRunner()
 

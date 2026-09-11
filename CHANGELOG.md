@@ -24,6 +24,10 @@
   into promotion policy. Old runs, datasets, and artifacts remain readable.
 - Split run helpers from `factory.py` into `run_support.py` with no behavior
   change.
+- Run the loop on macOS: stages declare `network: deny` (default, fail-closed)
+  or `allow` (admitted only with `permitUnisolated: true` in the binding
+  config); experiment scripts set it per script. Address-space limits are
+  recorded under `unenforcedLimits` on macOS instead of enforced.
 
 - Rebrand the repository, CLI, Python package, configuration, protocols, and
   environment variables to OpenFoundry. This is a breaking rename without

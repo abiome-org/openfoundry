@@ -29,7 +29,9 @@ checkpoint, release, or alias) to branch a candidate from prior work. A train
 `checkpoint` path is published for reuse. Scripts need no OpenFoundry imports.
 Source capture respects Git ignores and archives uncommitted edits by default.
 Dependency locks live inside each script's source directory. Custom stage graphs
-can use modules, workloads, evaluation specs, and bindings directly.
+can use modules, workloads, evaluation specs, and bindings directly. On macOS
+(no user namespaces), set `network: allow` on dev scripts and
+`permitUnisolated: true` in the provider config; `deny` stages fail closed.
 
 ```sh
 openfoundry experiment run experiment.yaml --candidate baseline

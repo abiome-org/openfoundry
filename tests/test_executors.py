@@ -676,7 +676,41 @@ def test_local_executor_applies_binding_resource_limits(tmp_path):
     )
     executor = LocalExecutor(limits={"addressSpaceBytes": 1024**3})
     assert executor.preflight() == []
+    if sys.platform == "darwin":
+        pytest.skip("macOS cannot enforce address-space limits; recorded, not enforced")
     hungry = _finish(executor, tmp_path / "hungry", ["python3", "-c", "x = bytearray(4 * 1024**3)"])
     assert executor.status(hungry).state == "failed"
     modest = _finish(executor, tmp_path / "modest", ["python3", "-c", "x = bytearray(1024)"])
     assert executor.status(modest).state == "succeeded"
+
+
+def test_local_executor_records_unenforceable_limits_instead_of_crashing(tmp_path):
+    executor = LocalExecutor(limits={"addressSpaceBytes": 1024**3, "cpuSeconds": 60})
+    plan = executor.plan(argv=["python3", "-c", "pass"], run_dir=tmp_path / "run", cwd=tmp_path)
+    if sys.platform == "darwin":
+        assert plan.metadata["unenforcedLimits"] == {
+            "addressSpaceBytes": "unenforceable on macOS; recorded, not enforced"
+        }
+        assert "addressSpaceBytes" not in plan.resources
+        assert plan.resources["cpuSeconds"] == 60
+        assert plan.metadata["requestedResources"]["addressSpaceBytes"] == 1024**3
+    else:
+        assert plan.metadata["unenforcedLimits"] == {}
+        assert plan.resources["addressSpaceBytes"] == 1024**3
+
+
+def test_local_provider_validates_permit_unisolated_flag(tmp_path):
+    registry = default_executor_registry(discover=False)
+    binding = {
+        "kind": "Binding",
+        "spec": {"executor": "local", "config": {"permitUnisolated": "yes"}},
+    }
+    with pytest.raises(ValidationError, match="provider contract"):
+        registry.resolve(
+            "local",
+            project_root=tmp_path,
+            state_root=tmp_path / ".openfoundry",
+            actor="tester",
+            declaration=binding,
+            config={"permitUnisolated": "yes"},
+        )

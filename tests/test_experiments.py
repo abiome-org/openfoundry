@@ -741,3 +741,41 @@ def test_cli_search_and_leaderboard_surface(tmp_path):
     )
     assert missing.exit_code == 1
     assert json.loads(missing.output)["error"]["code"] == "validation_error"
+
+
+def _allow_network_recipe(definition):
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["train"]["network"] = "allow"
+    recipe["evaluate"]["network"] = "allow"
+    definition.write_text(yaml.safe_dump(recipe))
+    return recipe
+
+
+def test_allow_stages_require_explicit_permit(tmp_path):
+    from openfoundry.errors import CapabilityError
+
+    paths, definition = project(tmp_path)
+    _allow_network_recipe(definition)
+    with Factory(paths) as factory, pytest.raises(CapabilityError, match="without isolation"):
+        factory.experiments.prepare(definition, "baseline")
+
+
+def test_allow_stages_admit_with_permit_without_namespaces(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = _allow_network_recipe(definition)
+    recipe["provider"] = {"permitUnisolated": True}
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        operation = factory.experiments.prepare(definition, "baseline")
+        assert operation["state"] == "pending"
+
+
+def test_unisolated_experiment_runs_without_namespaces(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = _allow_network_recipe(definition)
+    recipe["provider"] = {"permitUnisolated": True}
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        run = factory.experiments.run(definition, "candidate")
+        assert run["state"] == "succeeded"
+        assert run["scores"]["accuracy"] == 1

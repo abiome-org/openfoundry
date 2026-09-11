@@ -887,6 +887,7 @@ class Factory:
         recovering: bool = False,
         datasets: list[dict[str, Any]] | None = None,
         data_use: DataUse = "training",
+        deny_network: bool = True,
     ) -> ProtocolResult:
         validate_contract(manifest.schemas["input"], request.inputs, "input")
         validate_contract(manifest.schemas["config"], request.config, "config")
@@ -900,7 +901,7 @@ class Factory:
             argv=[str(item) for item in environment["command"]],
             run_dir=run_dir,
             cwd=code_root,
-            deny_network=True,
+            deny_network=deny_network,
             requires_result=True,
             environment=environment,
             **executor_config,
@@ -947,13 +948,13 @@ class Factory:
 
     @staticmethod
     def _prepare_module_environment(
-        executor: Executor, manifest: ModuleManifest, code_root: Path
+        executor: Executor, manifest: ModuleManifest, code_root: Path, *, deny_network: bool = True
     ) -> dict[str, Any]:
         environment = executor.prepare_environment(
             argv=manifest.argv,
             cwd=code_root,
             dependency=dependency_lock(manifest),
-            deny_network=True,
+            deny_network=deny_network,
         )
         if not isinstance(environment, dict):
             raise IntegrityError("executor environment descriptor must be an object")
@@ -1005,13 +1006,39 @@ class Factory:
             ],
         )
 
+    @staticmethod
+    def _required_capabilities(stages: list[Stage]) -> frozenset[str]:
+        if any(stage.network != "allow" for stage in stages):
+            return MODULE_EXECUTION_CAPABILITIES
+        return MODULE_PROTOCOL_CAPABILITIES
+
+    def _check_unisolated_support(self, stages: list[Stage], config: dict[str, Any]) -> None:
+        unisolated = sorted(stage.name for stage in stages if stage.network == "allow")
+        if unisolated and not config.get("permitUnisolated"):
+            raise CapabilityError(
+                f"stages {unisolated} allow network egress without isolation",
+                details={"stages": unisolated},
+                remediation=[
+                    {
+                        "action": "executor.preflight",
+                        "command": "openfoundry executor preflight <binding> --workload <workload>",
+                        "description": (
+                            "Set the stage back to network: deny, or acknowledge egress by "
+                            "setting permitUnisolated: true in the binding config."
+                        ),
+                    }
+                ],
+            )
+
     def _admit_module_environments(
         self, stages: list[Stage], resolved: ResolvedExecutor
     ) -> dict[str, tuple[ModuleManifest, Path, dict[str, Any]]]:
         admitted: dict[str, tuple[ModuleManifest, Path, dict[str, Any]]] = {}
         for stage in stages:
             manifest, code_root = load_manifest(self.paths.root / stage.module, self.paths.root)
-            environment = self._prepare_module_environment(resolved.executor, manifest, code_root)
+            environment = self._prepare_module_environment(
+                resolved.executor, manifest, code_root, deny_network=stage.network != "allow"
+            )
             admitted[stage.name] = (manifest, code_root, environment)
         return admitted
 
@@ -1047,7 +1074,7 @@ class Factory:
             execution_stages = [*admitted.stages]
             if model_package is not None:
                 execution_stages.append(self._inference_adapter_stage(model_package))
-            required = MODULE_EXECUTION_CAPABILITIES
+            required = self._required_capabilities(execution_stages)
         name = str(binding["spec"]["executor"])
         resolved = self._resolve_executor(name, binding, self._executor_config(binding))
         report = self.executors.preflight(resolved, required_capabilities=required)
@@ -1080,7 +1107,8 @@ class Factory:
             binding_raw,
             self._executor_config(binding_raw),
         )
-        self._require_executor(resolved, MODULE_EXECUTION_CAPABILITIES)
+        self._require_executor(resolved, self._required_capabilities(execution_stages))
+        self._check_unisolated_support(execution_stages, resolved.config)
         self._admit_module_environments(execution_stages, resolved)
         pinned_inputs = self._pin_stage_inputs(stages)
         pinned_references = self._pin_reference_inputs(stages)
@@ -1433,7 +1461,8 @@ class Factory:
         )
         initial_admission = None
         if not recovering:
-            self._require_executor(resolved_executor, MODULE_EXECUTION_CAPABILITIES)
+            self._require_executor(resolved_executor, self._required_capabilities(execution_stages))
+            self._check_unisolated_support(execution_stages, resolved_executor.config)
             initial_admission = self._admit_module_environments(execution_stages, resolved_executor)
         evaluation_specs = self._pin_named_resources(
             admitted.evaluation_refs,
@@ -1453,7 +1482,8 @@ class Factory:
             expected_adapter_packages,
         )
         if recovering:
-            self._require_executor(resolved_executor, MODULE_EXECUTION_CAPABILITIES)
+            self._require_executor(resolved_executor, self._required_capabilities(execution_stages))
+            self._check_unisolated_support(execution_stages, resolved_executor.config)
         admitted_modules, module_digests, environments, inference_evidence = (
             self._admit_run_sources(captured, resolved_executor, initial_admission)
         )
@@ -1642,7 +1672,10 @@ class Factory:
         inference_evidence: dict[str, Any] | None = None
         for source in captured:
             environment = self._prepare_module_environment(
-                resolved_executor.executor, source.manifest, source.code_root
+                resolved_executor.executor,
+                source.manifest,
+                source.code_root,
+                deny_network=source.stage.network != "allow",
             )
             expected_environment = (
                 source.expected_environment
@@ -1779,6 +1812,7 @@ class Factory:
                 "runId": run_id,
                 "stage": stage.name,
                 "runDirectory": str(context.run_dir / stage.name),
+                "network": stage.network,
             },
         )
         result = self._execute_module(
@@ -1788,6 +1822,7 @@ class Factory:
             stage_dir,
             executor=context.executor.executor,
             executor_config=context.executor.config,
+            deny_network=stage.network != "allow",
             environment=environment,
             recovering=context.recovering,
             data_use=stage.data_use,

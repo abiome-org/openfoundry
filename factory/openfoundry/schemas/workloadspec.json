@@ -70,6 +70,9 @@
                   "dataUse": {
                     "enum": ["training", "evaluation"]
                   },
+                  "network": {
+                    "enum": ["deny", "allow"]
+                  },
                   "config": {
                     "type": "object"
                   },

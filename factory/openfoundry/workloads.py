@@ -37,6 +37,8 @@ _TRANSITIONS = {
 
 DataUse = Literal["training", "evaluation"]
 
+NetworkPolicy = Literal["deny", "allow"]
+
 
 class Stage(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
@@ -45,6 +47,9 @@ class Stage(BaseModel):
     module: str
     operation: str = "run"
     data_use: DataUse = Field(default="training", alias="dataUse")
+    # deny isolates module network egress; allow runs without isolation and
+    # requires the controller to admit it explicitly (permitUnisolated).
+    network: NetworkPolicy = "deny"
     config: dict[str, Any] = Field(default_factory=dict)
     inputs: dict[str, str] = Field(default_factory=dict)
     outputs: list[str] = Field(default_factory=list)
@@ -114,6 +119,9 @@ class AdmittedWorkload(BaseModel):
         for stage in value["stages"]:
             if stage["data_use"] == "training":
                 del stage["data_use"]
+            # Likewise, deny is the original implicit network policy.
+            if stage.get("network") == "deny":
+                del stage["network"]
         value["environmentDigests"] = {
             stage: descriptor["digest"] for stage, descriptor in sorted(self.environments.items())
         }
