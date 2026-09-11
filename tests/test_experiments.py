@@ -591,3 +591,63 @@ def test_train_checkpoint_declaration_is_accepted(tmp_path):
     definition.write_text(yaml.safe_dump(recipe))
     with pytest.raises(ValidationError, match="invalid experiment"):
         read_definition(definition)
+
+
+def test_search_expansion_is_deterministic(tmp_path):
+    from openfoundry.experiment_definition import Search, expand_search
+
+    search = Search.model_validate(
+        {"template": "baseline", "grid": {"lr": [0.01, 0.02], "steps": [10, 20]}}
+    )
+    trials = expand_search(search, {"lr": 0.0, "steps": 0, "other": 1})
+    assert trials == [
+        {"lr": 0.01, "steps": 10, "other": 1},
+        {"lr": 0.01, "steps": 20, "other": 1},
+        {"lr": 0.02, "steps": 10, "other": 1},
+        {"lr": 0.02, "steps": 20, "other": 1},
+    ]
+    sampled = Search.model_validate(
+        {"template": "baseline", "grid": {"lr": [0.01, 0.02]}, "count": 3}
+    )
+    assert [t["lr"] for t in expand_search(sampled, {})] == [0.01, 0.02, 0.01]
+    repeats = Search.model_validate({"template": "baseline", "count": 2})
+    assert expand_search(repeats, {"a": 1}) == [{"a": 1}, {"a": 1}]
+    capped = Search.model_validate(
+        {
+            "template": "baseline",
+            "grid": {"lr": [0.01, 0.02, 0.03]},
+            "budget": {"maxRuns": 2},
+        }
+    )
+    assert len(expand_search(capped, {})) == 2
+
+
+def test_search_validation(tmp_path):
+    _paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {"template": "missing", "grid": {"offset": [0, 1]}}
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+    recipe["search"] = {"template": "baseline", "grid": {"offset": []}}
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+    recipe["search"] = {"template": "baseline", "count": 4, "budget": {"maxRuns": 2}}
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+    recipe["search"] = {"template": "baseline"}
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+
+
+def test_leaderboard_empty_before_runs(tmp_path):
+    paths, definition = project(tmp_path)
+    with Factory(paths) as factory:
+        board = factory.experiments.leaderboard(definition)
+        assert board["experiment"] == "regression"
+        assert board["primaryMetric"] == "accuracy"
+        assert board["entries"] == []
+        assert board["best"] is None
