@@ -98,7 +98,10 @@ class ExperimentService:
         evaluation = self.factory.apply_resource(evaluation_spec(definition))
         spec = definition.candidates[candidate]
         parameters = spec.parameters
-        train_inputs = dict(inputs)
+        # The reserved base input is always supplied so one train script can
+        # serve every candidate: scratch candidates receive "" and branch
+        # candidates receive their resolved from reference.
+        train_inputs = {**inputs, "base": ""}
         if spec.from_ref is not None:
             train_inputs["base"] = self._resolve_branch_ref(spec.from_ref)
             requested = set(definition.train.inputs or [*train_inputs])
