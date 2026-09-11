@@ -58,6 +58,16 @@ def test_every_schema_kind_accepts_minimal_resource(kind):
     assert registry.validate(value)["kind"] == kind
 
 
+def test_checked_in_evaluation_spec_example_is_valid_and_carries_no_thresholds():
+    registry = SchemaRegistry()
+    spec = registry.load(Path("evaluations/example-affine.yaml"))
+    assert spec["kind"] == "EvaluationSpec"
+    with_thresholds = deepcopy(spec)
+    with_thresholds["spec"]["metrics"][0]["minimum"] = 0.0
+    with pytest.raises(ValidationError):
+        registry.validate(with_thresholds)
+
+
 def test_schema_rejects_wrong_kind_top_level_and_naive_time():
     registry = SchemaRegistry()
     value = _minimal(registry, registry.kinds[0])
