@@ -91,9 +91,53 @@ class Candidate(DefinitionModel):
     from_ref: str | None = Field(default=None, alias="from")
 
 
-class Accelerator(DefinitionModel):
-    type: str | None = None
-    count: float = Field(default=0, ge=0)
+class SearchBudget(DefinitionModel):
+    maxRuns: int | None = Field(default=None, gt=0)
+    maxCostUSD: float | None = Field(default=None, gt=0)
+
+
+class Search(DefinitionModel):
+    # Candidate whose parameters seed every generated trial.
+    template: Name = "baseline"
+    # Cartesian grid over parameters. Empty grid with count set means
+    # repeats of the template (useful for variance estimates).
+    grid: dict[str, list[Any]] = Field(default_factory=dict)
+    count: int | None = Field(default=None, gt=0)
+    # Declared execution budget. Local runs trials sequentially in a
+    # deterministic order regardless of concurrency; the value is recorded
+    # for schedulers that honor it.
+    concurrency: int = Field(default=1, ge=1)
+    budget: SearchBudget = Field(default_factory=SearchBudget)
+
+    @model_validator(mode="after")
+    def bounds(self) -> Search:
+        for key, values in self.grid.items():
+            if not values:
+                raise ValueError(f"search grid {key!r} must list at least one value")
+        if not self.grid and self.count is None:
+            raise ValueError("search requires a grid or a count")
+        if (
+            self.count is not None
+            and self.budget.maxRuns is not None
+            and self.count > self.budget.maxRuns
+        ):
+            raise ValueError("search count exceeds budget maxRuns")
+        return self
+
+
+def expand_search(search: Search, template: dict[str, Any]) -> list[dict[str, Any]]:
+    """Deterministic trial parameters: cartesian grid, cycled to count, capped by maxRuns."""
+    from itertools import product
+
+    keys = sorted(search.grid)
+    combos = [
+        dict(zip(keys, values, strict=True)) for values in product(*(search.grid[k] for k in keys))
+    ] or [{}]
+    if search.count is not None:
+        combos = [combos[index % len(combos)] for index in range(search.count)]
+    if search.budget.maxRuns is not None:
+        combos = combos[: search.budget.maxRuns]
+    return [{**template, **combo} for combo in combos]
 
 
 class Accelerator(DefinitionModel):
@@ -124,6 +168,7 @@ class ExperimentDefinition(DefinitionModel):
     primaryMetric: str
     baseline: Name = "baseline"
     candidates: dict[Name, Candidate]
+    search: Search | None = None
     limits: Limits = Field(default_factory=Limits)
     executor: str = "local"
     provider: dict[str, Any] = Field(default_factory=dict)
@@ -150,6 +195,7 @@ class ExperimentDefinition(DefinitionModel):
         for name, candidate in self.candidates.items():
             if candidate.from_ref is not None and not _is_branch_ref(candidate.from_ref):
                 raise ValueError(f"candidate {name!r} has an invalid from reference")
+        _check_search(self.search, self.candidates)
         return self
 
 
@@ -162,6 +208,11 @@ def _is_branch_ref(value: str) -> bool:
     if value.startswith(_BRANCH_PREFIXES):
         return bool(value not in ("run/", "checkpoint/", "release/", "alias/"))
     return False
+
+
+def _check_search(search: Search | None, candidates: dict[str, Candidate]) -> None:
+    if search is not None and search.template not in candidates:
+        raise ValueError("search template must name a candidate")
 
 
 def project_path(root: Path, base: Path, value: str) -> Path:

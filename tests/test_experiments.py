@@ -12,7 +12,12 @@ from openfoundry.artifacts import ArtifactBuilder
 from openfoundry.candidate_review import review, write_review
 from openfoundry.cli import app
 from openfoundry.config import ProjectPaths
-from openfoundry.errors import IntegrityError, OperationCanceled, ValidationError
+from openfoundry.errors import (
+    AuthorizationError,
+    IntegrityError,
+    OperationCanceled,
+    ValidationError,
+)
 from openfoundry.executors import LocalExecutor
 from openfoundry.experiment_definition import initialize, read_definition
 from openfoundry.factory import Factory
@@ -592,6 +597,214 @@ def test_train_checkpoint_declaration_is_accepted(tmp_path):
     definition.write_text(yaml.safe_dump(recipe))
     with pytest.raises(ValidationError, match="invalid experiment"):
         read_definition(definition)
+
+
+def test_search_expansion_is_deterministic(tmp_path):
+    from openfoundry.experiment_definition import Search, expand_search
+
+    search = Search.model_validate(
+        {"template": "baseline", "grid": {"lr": [0.01, 0.02], "steps": [10, 20]}}
+    )
+    trials = expand_search(search, {"lr": 0.0, "steps": 0, "other": 1})
+    assert trials == [
+        {"lr": 0.01, "steps": 10, "other": 1},
+        {"lr": 0.01, "steps": 20, "other": 1},
+        {"lr": 0.02, "steps": 10, "other": 1},
+        {"lr": 0.02, "steps": 20, "other": 1},
+    ]
+    sampled = Search.model_validate(
+        {"template": "baseline", "grid": {"lr": [0.01, 0.02]}, "count": 3}
+    )
+    assert [t["lr"] for t in expand_search(sampled, {})] == [0.01, 0.02, 0.01]
+    repeats = Search.model_validate({"template": "baseline", "count": 2})
+    assert expand_search(repeats, {"a": 1}) == [{"a": 1}, {"a": 1}]
+    capped = Search.model_validate(
+        {
+            "template": "baseline",
+            "grid": {"lr": [0.01, 0.02, 0.03]},
+            "budget": {"maxRuns": 2},
+        }
+    )
+    assert len(expand_search(capped, {})) == 2
+
+
+def test_search_validation(tmp_path):
+    _paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {"template": "missing", "grid": {"offset": [0, 1]}}
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+    recipe["search"] = {"template": "baseline", "grid": {"offset": []}}
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+    recipe["search"] = {"template": "baseline", "count": 4, "budget": {"maxRuns": 2}}
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+    recipe["search"] = {"template": "baseline"}
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+
+
+def test_leaderboard_empty_before_runs(tmp_path):
+    paths, definition = project(tmp_path)
+    with Factory(paths) as factory:
+        board = factory.experiments.leaderboard(definition)
+        assert board["experiment"] == "regression"
+        assert board["primaryMetric"] == "accuracy"
+        assert board["entries"] == []
+        assert board["best"] is None
+
+
+def test_leaderboard_ranks_best_first_by_primary_metric(tmp_path):
+    paths, definition = project(tmp_path)
+    with Factory(paths) as factory:
+        baseline = factory.experiments.run(definition, "baseline")
+        candidate = factory.experiments.run(definition, "candidate")
+        board = factory.experiments.leaderboard(definition)
+        assert board["direction"] == "maximize"
+        assert [entry["runId"] for entry in board["entries"]] == [
+            candidate["runId"],
+            baseline["runId"],
+        ]
+        assert board["entries"][0]["score"] == 1
+        assert board["entries"][1]["score"] == 0
+        assert board["best"]["runId"] == candidate["runId"]
+        assert not board["best"]["staleDefinition"]
+        assert board["best"]["costUSD"] == 0.0
+
+
+def test_leaderboard_minimize_metric_ranks_lowest_first(tmp_path):
+    paths, definition = project(tmp_path)
+    (paths.root / "src/evaluate.py").write_text(
+        EVALUATE.replace(
+            '"passed": True,',
+            '"passed": True, "loss": 1 - sum(row["score"] for row in results) / len(results),',
+        )
+    )
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["primaryMetric"] = "loss"
+    recipe["metrics"] = {
+        "accuracy": {"direction": "maximize"},
+        "loss": {"direction": "minimize"},
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        baseline = factory.experiments.run(definition, "baseline")
+        candidate = factory.experiments.run(definition, "candidate")
+        board = factory.experiments.leaderboard(definition)
+        assert board["direction"] == "minimize"
+        assert [entry["runId"] for entry in board["entries"]] == [
+            candidate["runId"],
+            baseline["runId"],
+        ]
+        assert board["entries"][0]["score"] == 0
+        assert board["entries"][1]["score"] == 1
+        assert board["best"]["runId"] == candidate["runId"]
+
+
+def test_leaderboard_places_unscored_runs_last(tmp_path):
+    paths, definition = project(tmp_path)
+    with Factory(paths) as factory:
+        candidate = factory.experiments.run(definition, "candidate")
+        operation = factory.experiments.prepare(definition, "baseline")
+        factory.run_control.request(operation["id"], "No longer needed")
+        board = factory.experiments.leaderboard(definition)
+        assert board["entries"][-1]["state"] == "canceled"
+        assert board["entries"][-1]["score"] is None
+        assert [entry["runId"] for entry in board["entries"][:-1]] == [candidate["runId"]]
+        assert board["best"]["runId"] == candidate["runId"]
+
+
+def test_run_search_expands_grid_and_runs_trials(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {
+        "template": "baseline",
+        "grid": {"offset": [0, 2]},
+        "concurrency": 4,
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        result = factory.experiments.run_search(definition)
+        assert result["experiment"] == "regression"
+        assert result["template"] == "baseline"
+        assert result["trials"] == 2
+        assert result["completed"] == 2
+        assert result["concurrency"] == 4
+        assert result["spentUSD"] == 0.0
+        assert result["stopped"] is None
+        assert [run["state"] for run in result["runs"]] == ["succeeded", "succeeded"]
+        assert [run["parameters"]["offset"] for run in result["runs"]] == [0, 2]
+        listed = factory.experiments.list("regression")
+        assert [item["candidate"] for item in listed] == ["baseline-s01", "baseline-s00"]
+        assert [item["scores"]["accuracy"] for item in listed] == [0, 1]
+        board = factory.experiments.leaderboard(definition)
+        assert board["best"]["candidate"] == "baseline-s00"
+        report = review(factory.experiments, board["best"]["runId"])
+        assert report["candidate"]["parameters"] == {"offset": 0, "sleep": 0}
+
+
+def test_run_search_budget_cost_stops_sweep_early(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {
+        "template": "baseline",
+        "grid": {"offset": [0, 1, 2]},
+        "budget": {"maxCostUSD": 8.0},
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        factory.experiments._measured_cost = lambda run_id: 5.0
+        result = factory.experiments.run_search(definition)
+        assert result["trials"] == 3
+        assert result["completed"] == 2
+        assert result["spentUSD"] == 10.0
+        assert result["stopped"] == {
+            "reason": "budget.maxCostUSD exceeded",
+            "spentUSD": 10.0,
+            "completedTrials": 2,
+            "remainingTrials": 1,
+        }
+
+
+def _deny_search(paths, action):
+    policy_path = paths.root / "policies/local.yaml"
+    policy = yaml.safe_load(policy_path.read_text())
+    policy["spec"]["rules"].append(
+        {"name": f"no-{action}", "effect": "deny", "match": {"action": action}}
+    )
+    policy_path.write_text(yaml.safe_dump(policy))
+
+
+def test_run_search_authorizes_experiment_search(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {"template": "baseline", "grid": {"offset": [0, 1]}}
+    definition.write_text(yaml.safe_dump(recipe))
+    _deny_search(paths, "experiment.search")
+    with Factory(paths) as factory:
+        with pytest.raises(AuthorizationError, match=r"'experiment.search'"):
+            factory.experiments.run_search(definition)
+        assert factory.experiments.list("regression") == []
+
+
+def test_run_search_rejects_cost_budget_with_detach(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {
+        "template": "baseline",
+        "grid": {"offset": [0, 1]},
+        "budget": {"maxCostUSD": 8.0},
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        with pytest.raises(ValidationError, match=r"budget\.maxCostUSD requires sequential trials"):
+            factory.experiments.run_search(definition, detach=True)
+        assert factory.experiments.list("regression") == []
 
 
 TRAIN_WITH_BASE = """import argparse, json, time

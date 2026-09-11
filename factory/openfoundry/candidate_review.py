@@ -57,14 +57,22 @@ def _subject(service: ExperimentService, run_id: str) -> dict[str, Any]:
     evaluation = service.factory._evaluation_result(f"run/{run_id}")
     definition = metadata["definition"]
     candidate = metadata["candidate"]
+    candidates = definition.get("candidates", {})
+    if candidate in candidates:
+        rationale = candidates[candidate]["rationale"]
+        parameters = candidates[candidate]["parameters"]
+    else:
+        # Search-generated trial: parameters travel in run metadata.
+        rationale = metadata.get("candidateRationale", "")
+        parameters = metadata.get("candidateParams", {})
     outputs = result["spec"]["outputs"]
     run = service.factory._run_resource(run_id)
     return {
         "runId": run_id,
         "name": candidate,
         "experiment": definition["name"],
-        "rationale": definition["candidates"][candidate]["rationale"],
-        "parameters": definition["candidates"][candidate]["parameters"],
+        "rationale": rationale,
+        "parameters": parameters,
         "scores": evaluation["spec"]["scores"],
         "evaluationRefs": evaluation["spec"]["extensions"]["evaluationRefs"],
         "sources": metadata["sources"],

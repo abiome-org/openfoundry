@@ -82,6 +82,28 @@ class ExperimentService:
     def _compile(
         self, definition: ExperimentDefinition, path: Path, candidate: str, compiled: Path
     ) -> tuple[Path, Path]:
+        spec = definition.candidates[candidate]
+        return self._compile_params(
+            definition,
+            path,
+            compiled,
+            candidate_name=candidate,
+            parameters=spec.parameters,
+            from_ref=spec.from_ref,
+            rationale=spec.rationale,
+        )
+
+    def _compile_params(
+        self,
+        definition: ExperimentDefinition,
+        path: Path,
+        compiled: Path,
+        *,
+        candidate_name: str,
+        parameters: dict[str, Any],
+        from_ref: str | None,
+        rationale: str = "",
+    ) -> tuple[Path, Path]:
         root = self.factory.paths.root
         sources = {
             name: capture_script(root, path.parent, script, compiled / name)
@@ -96,25 +118,25 @@ class ExperimentService:
             )
             inputs[name] = f"dataset/{dataset_name}"
         evaluation = self.factory.apply_resource(evaluation_spec(definition))
-        spec = definition.candidates[candidate]
-        parameters = spec.parameters
         # The reserved base input is always supplied so one train script can
         # serve every candidate: scratch candidates receive "" and branch
         # candidates receive their resolved from reference.
         train_inputs = {**inputs, "base": ""}
-        if spec.from_ref is not None:
-            train_inputs["base"] = self._resolve_branch_ref(spec.from_ref)
+        if from_ref is not None:
+            train_inputs["base"] = self._resolve_branch_ref(from_ref)
             requested = set(definition.train.inputs or [*train_inputs])
             if "base" not in requested:
                 raise ValidationError(
                     "candidate declares from but the train script does not accept a base input",
-                    details={"candidate": candidate},
+                    details={"candidate": candidate_name},
                 )
         card = project_path(root, path.parent, definition.modelCard)
         metadata = {
             "definition": definition.model_dump(mode="json"),
             "definitionDigest": sha256_digest(definition.model_dump(mode="json")),
-            "candidate": candidate,
+            "candidate": candidate_name,
+            "candidateParams": parameters,
+            "candidateRationale": rationale,
             "sources": sources,
             "modelCard": card.read_text() if card.is_file() else None,
         }
@@ -137,7 +159,7 @@ class ExperimentService:
         scripts[1]["config"]["metricNames"] = list(definition.metrics)
         workload = resource(
             "WorkloadSpec",
-            f"{definition.name}-{candidate}",
+            f"{definition.name}-{candidate_name}",
             {
                 "graph": {"stages": scripts},
                 "evaluationRefs": [f"evaluationspec/{evaluation['metadata']['name']}"],
@@ -188,6 +210,159 @@ class ExperimentService:
             return operation
         self.factory.execute_run_operation(str(operation["id"]))
         return self.status(str(operation["id"]))
+
+    def run_search(self, path: str | Path, *, detach: bool = False) -> dict[str, Any]:
+        """Expand definition.search into trials and run them sequentially.
+
+        Trials execute one at a time in deterministic expansion order even when
+        search.concurrency > 1; concurrency is recorded as the declared budget
+        for schedulers that honor it. budget.maxRuns caps expansion (already
+        enforced at validation). Sequential runs stop early once measured spend
+        exceeds budget.maxCostUSD; detached runs launch every trial
+        concurrently and cannot observe per-trial costs, so budget.maxCostUSD
+        together with detach is rejected.
+        """
+        from openfoundry.experiment_definition import expand_search
+
+        self.factory._authorize("experiment.search")
+        project_path_value = self.factory._project_file(path, kind="experiment")
+        definition = read_definition(project_path_value)
+        search = definition.search
+        if search is None:
+            raise ValidationError("experiment definition declares no search")
+        if detach and search.budget.maxCostUSD is not None:
+            raise ValidationError(
+                "budget.maxCostUSD requires sequential trials; rerun the search without detach",
+                details={"budget": "maxCostUSD"},
+            )
+        template = definition.candidates[search.template]
+        trials = expand_search(search, template.parameters)
+        max_cost = search.budget.maxCostUSD
+        runs: list[dict[str, Any]] = []
+        spent = 0.0
+        stopped = None
+        for index, parameters in enumerate(trials):
+            name = f"{search.template}-s{index:02d}"
+            operation = self._prepare_params(
+                project_path_value,
+                definition,
+                candidate_name=name,
+                parameters=parameters,
+                from_ref=template.from_ref,
+                rationale=f"search trial {index} from {search.template}",
+            )
+            if detach:
+                launch_worker(self.factory, str(operation["id"]))
+                runs.append({**operation, "candidate": name, "parameters": parameters})
+                continue
+            self.factory.execute_run_operation(str(operation["id"]))
+            status = self.status(str(operation["id"]))
+            runs.append({**status, "parameters": parameters})
+            if max_cost is not None:
+                spent += self._measured_cost(str(operation["id"]))
+                if spent > max_cost and index + 1 < len(trials):
+                    stopped = {
+                        "reason": "budget.maxCostUSD exceeded",
+                        "spentUSD": spent,
+                        "completedTrials": index + 1,
+                        "remainingTrials": len(trials) - index - 1,
+                    }
+                    break
+        return {
+            "experiment": definition.name,
+            "template": search.template,
+            "trials": len(trials),
+            "completed": len(runs),
+            "concurrency": search.concurrency,
+            "spentUSD": spent,
+            "stopped": stopped,
+            "runs": runs,
+        }
+
+    def _measured_cost(self, run_id: str) -> float:
+        from openfoundry.candidate_review import _subject
+
+        try:
+            measurement = _subject(self, run_id).get("measurement") or {}
+            return float(measurement.get("monetaryCostUSD") or 0.0)
+        except (ValidationError, IntegrityError, NotFoundError, KeyError, TypeError, ValueError):
+            return 0.0
+
+    def _prepare_params(
+        self,
+        path: Path,
+        definition: ExperimentDefinition,
+        *,
+        candidate_name: str,
+        parameters: dict[str, Any],
+        from_ref: str | None,
+        rationale: str,
+    ) -> dict[str, Any]:
+        started = time.monotonic()
+        compiled = self.factory.paths.state / "experiments" / str(uuid7())
+        compiled.mkdir(parents=True)
+        try:
+            workload, binding = self._compile_params(
+                definition,
+                path,
+                compiled,
+                candidate_name=candidate_name,
+                parameters=parameters,
+                from_ref=from_ref,
+                rationale=rationale,
+            )
+            operation = self.factory.create_run_operation(workload, binding)
+        except BaseException:
+            shutil.rmtree(compiled)
+            raise
+        return {
+            **operation,
+            "preparationSeconds": time.monotonic() - started,
+            "generated": str(compiled.relative_to(self.factory.paths.root)),
+        }
+
+    def leaderboard(self, name: str | Path) -> dict[str, Any]:
+        """Ranked trials for an experiment file, best first. Observation, not advice."""
+        from openfoundry.candidate_review import _subject
+
+        path = self.factory._project_file(name, kind="experiment")
+        definition = read_definition(path)
+        primary = definition.primaryMetric
+        direction = definition.metrics[primary].direction
+        entries: list[dict[str, Any]] = []
+        for item in self.list(definition.name):
+            run_id = str(item["id"])
+            score = item.get("scores", {}).get(primary)
+            cost = None
+            if item.get("state") == "succeeded":
+                try:
+                    subject = _subject(self, run_id)
+                    score = subject["scores"].get(primary, score)
+                    measurement = subject.get("measurement") or {}
+                    cost = measurement.get("monetaryCostUSD")
+                except (ValidationError, IntegrityError, NotFoundError, KeyError):
+                    pass
+            entries.append(
+                {
+                    "runId": run_id,
+                    "candidate": item.get("candidate"),
+                    "state": item.get("state"),
+                    "score": score,
+                    "costUSD": cost,
+                    "staleDefinition": item.get("definitionDigest")
+                    != sha256_digest(definition.model_dump(mode="json")),
+                }
+            )
+        ranked = [e for e in entries if isinstance(e["score"], (int, float))]
+        unranked = [e for e in entries if not isinstance(e["score"], (int, float))]
+        ranked.sort(key=lambda e: float(e["score"]), reverse=(direction == "maximize"))
+        return {
+            "experiment": definition.name,
+            "primaryMetric": primary,
+            "direction": direction,
+            "entries": [*ranked, *unranked],
+            "best": ranked[0] if ranked else None,
+        }
 
     def metadata(self, run_id: str) -> dict[str, Any]:
         try:
