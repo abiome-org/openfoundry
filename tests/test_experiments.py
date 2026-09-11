@@ -682,7 +682,7 @@ def test_leaderboard_minimize_metric_ranks_lowest_first(tmp_path):
     recipe = yaml.safe_load(definition.read_text())
     recipe["primaryMetric"] = "loss"
     recipe["metrics"] = {
-        "accuracy": {"minimum": 0.8},
+        "accuracy": {"direction": "maximize"},
         "loss": {"direction": "minimize"},
     }
     definition.write_text(yaml.safe_dump(recipe))
