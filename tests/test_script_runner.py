@@ -136,3 +136,24 @@ def test_adapter_measurements_do_not_overwrite_user_outputs(tmp_path, monkeypatc
     paths = {item["name"]: item["path"] for item in result["artifacts"]}
     assert paths["model"] != paths["measurement"]
     assert (tmp_path / "outputs/measurement.json").read_text() == "model payload"
+
+
+def test_optional_checkpoint_is_emitted_with_state_when_present(tmp_path, monkeypatch):
+    value = request(
+        tmp_path,
+        monkeypatch,
+        "from pathlib import Path\nimport sys\n"
+        '(Path(sys.argv[1]) / "ckpt.bin").write_text("weights")',
+        checkpoint="ckpt.bin",
+    )
+    result = run(value)
+    kinds = {item["name"]: item["kind"] for item in result["artifacts"]}
+    assert kinds["checkpoint"] == "checkpoint"
+    assert result["state"] == {"checkpoint": "script-checkpoint/v1"}
+
+
+def test_missing_checkpoint_is_not_an_error(tmp_path, monkeypatch):
+    value = request(tmp_path, monkeypatch, "import sys\n", checkpoint="ckpt.bin")
+    result = run(value)
+    assert "checkpoint" not in {item["name"] for item in result["artifacts"]}
+    assert "state" not in result

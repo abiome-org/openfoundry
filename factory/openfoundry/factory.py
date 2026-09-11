@@ -1206,7 +1206,18 @@ class Factory:
             run_resource = None
         if run_resource is not None and (self.paths.runs / operation_id / "state.json").is_file():
             return self._continue_run_operation(operation, recovering=True)
+        checkpoints = [
+            item["metadata"]["name"]
+            for item in self.resources.latest(kind="Checkpoint")
+            if isinstance(item.get("spec"), dict)
+            and str(item["spec"].get("runRef", "")).endswith(operation_id)
+        ]
         message = "run outcome is indeterminate; automatic replay is disabled"
+        if checkpoints:
+            message += (
+                f"; {len(checkpoints)} checkpoint(s) survived "
+                "(branch a new candidate with from: checkpoint/<name>)"
+            )
         if run_resource is not None:
             self.resources.set_status(
                 operation_id,

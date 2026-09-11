@@ -563,3 +563,31 @@ def test_failed_candidate_can_be_saved_without_passing_selection(tmp_path):
         with pytest.raises(IntegrityError, match="evaluation"):
             factory.promote_release("baseline")
         assert factory.show_release("baseline")["release"] == release
+
+
+def test_candidate_from_reference_validation(tmp_path):
+    _paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["candidates"]["branch"] = {
+        "rationale": "Resume from prior work.",
+        "parameters": {"offset": 0, "sleep": 0},
+        "from": "checkpoint/prior",
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    assert read_definition(definition).candidates["branch"].from_ref == "checkpoint/prior"
+    recipe["candidates"]["branch"]["from"] = "s3://elsewhere"
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+
+
+def test_train_checkpoint_declaration_is_accepted(tmp_path):
+    _paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["train"]["checkpoint"] = "ckpt.bin"
+    definition.write_text(yaml.safe_dump(recipe))
+    assert read_definition(definition).train.checkpoint == "ckpt.bin"
+    recipe["train"]["artifacts"] = {"checkpoint": "other.bin"}
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)

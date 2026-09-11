@@ -96,7 +96,17 @@ class ExperimentService:
             )
             inputs[name] = f"dataset/{dataset_name}"
         evaluation = self.factory.apply_resource(evaluation_spec(definition))
-        parameters = definition.candidates[candidate].parameters
+        spec = definition.candidates[candidate]
+        parameters = spec.parameters
+        train_inputs = dict(inputs)
+        if spec.from_ref is not None:
+            train_inputs["base"] = self._resolve_branch_ref(spec.from_ref)
+            requested = set(definition.train.inputs or [*train_inputs])
+            if "base" not in requested:
+                raise ValidationError(
+                    "candidate declares from but the train script does not accept a base input",
+                    details={"candidate": candidate},
+                )
         card = project_path(root, path.parent, definition.modelCard)
         metadata = {
             "definition": definition.model_dump(mode="json"),
@@ -110,7 +120,7 @@ class ExperimentService:
                 "train",
                 definition.train,
                 (compiled / "train/openfoundry-script.yaml").relative_to(root).as_posix(),
-                inputs,
+                train_inputs,
                 parameters,
             ),
             stage(
@@ -146,6 +156,27 @@ class ExperimentService:
             compiled / "experiment.yaml", definition.model_dump(mode="json", exclude_none=True)
         )
         return compiled / "workload.yaml", compiled / "binding.yaml"
+
+    def _resolve_branch_ref(self, reference: str) -> str:
+        if not reference.startswith("run/"):
+            return reference
+        run_id = reference.removeprefix("run/")
+        try:
+            status = self.factory.run_status(run_id)
+            result = self.factory._run_result(run_id, status["status"])
+        except (NotFoundError, IntegrityError) as exc:
+            raise ValidationError(
+                "candidate from run is unavailable", details={"reference": reference}
+            ) from exc
+        outputs = result["spec"]["outputs"]
+        for key in ("train.checkpoint", "train.model"):
+            if isinstance(outputs.get(key), str):
+                digest = str(outputs[key])
+                return digest if digest.startswith("sha256:") else f"artifact:{digest}"
+        raise ValidationError(
+            "candidate from run has no branchable train output",
+            details={"reference": reference},
+        )
 
     def run(self, path: str | Path, candidate: str, *, detach: bool = False) -> dict[str, Any]:
         operation = self.prepare(path, candidate)
