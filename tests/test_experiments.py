@@ -11,7 +11,12 @@ from openfoundry.api import create_app
 from openfoundry.candidate_review import review, write_review
 from openfoundry.cli import app
 from openfoundry.config import ProjectPaths
-from openfoundry.errors import IntegrityError, OperationCanceled, ValidationError
+from openfoundry.errors import (
+    AuthorizationError,
+    IntegrityError,
+    OperationCanceled,
+    ValidationError,
+)
 from openfoundry.executors import LocalExecutor
 from openfoundry.experiment_definition import initialize, read_definition
 from openfoundry.factory import Factory
@@ -763,3 +768,24 @@ def test_run_search_budget_cost_stops_sweep_early(tmp_path):
             "completedTrials": 2,
             "remainingTrials": 1,
         }
+
+
+def _deny_search(paths, action):
+    policy_path = paths.root / "policies/local.yaml"
+    policy = yaml.safe_load(policy_path.read_text())
+    policy["spec"]["rules"].append(
+        {"name": f"no-{action}", "effect": "deny", "match": {"action": action}}
+    )
+    policy_path.write_text(yaml.safe_dump(policy))
+
+
+def test_run_search_authorizes_experiment_search(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {"template": "baseline", "grid": {"offset": [0, 1]}}
+    definition.write_text(yaml.safe_dump(recipe))
+    _deny_search(paths, "experiment.search")
+    with Factory(paths) as factory:
+        with pytest.raises(AuthorizationError, match=r"'experiment.search'"):
+            factory.experiments.run_search(definition)
+        assert factory.experiments.list("regression") == []

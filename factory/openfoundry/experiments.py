@@ -219,7 +219,7 @@ class ExperimentService:
         """
         from openfoundry.experiment_definition import expand_search
 
-        self.factory._authorize("experiment.run")
+        self.factory._authorize("experiment.search")
         project_path_value = self.factory._project_file(path, kind="experiment")
         definition = read_definition(project_path_value)
         search = definition.search
