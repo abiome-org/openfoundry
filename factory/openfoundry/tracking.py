@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 def track(service: ExperimentService, run_id: str, uri: str) -> dict[str, Any]:
-    from openfoundry.factory import _operation_lease
+    from openfoundry.run_support import _operation_lease
 
     service.factory._authorize("experiment.track")
     report = review(service, run_id, details=True)
