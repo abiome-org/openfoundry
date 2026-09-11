@@ -47,3 +47,42 @@ def test_canonical_workload_projection_enforces_semantics():
     workload["spec"]["graph"]["stages"][1]["needs"] = ["missing"]
     with pytest.raises(ValidationError, match="semantic"):
         project_workload(workload)
+
+
+def test_stage_network_defaults_to_deny_without_changing_digests():
+    plain = AdmittedWorkload(
+        source_digest="sha256:" + "0" * 64, stages=[Stage(name="a", module="m")]
+    )
+    assert plain.stages[0].network == "deny"
+    explicit = AdmittedWorkload(
+        source_digest="sha256:" + "0" * 64,
+        stages=[Stage(name="a", module="m", network="deny")],
+    )
+    assert explicit.digest == plain.digest
+    assert (
+        AdmittedWorkload(
+            source_digest="sha256:" + "0" * 64,
+            stages=[Stage(name="a", module="m", network="allow")],
+        ).digest
+        != plain.digest
+    )
+
+
+def test_project_workload_validates_stage_network():
+    workload = {
+        "apiVersion": "openfoundry.dev/v1alpha1",
+        "kind": "WorkloadSpec",
+        "metadata": {"name": "net"},
+        "spec": {
+            "graph": {
+                "stages": [
+                    {"name": "train", "module": "m", "network": "allow"},
+                    {"name": "evaluate", "module": "m", "needs": ["train"]},
+                ]
+            }
+        },
+    }
+    assert [stage.network for stage in project_workload(workload).stages] == ["allow", "deny"]
+    workload["spec"]["graph"]["stages"][0]["network"] = "sometimes"
+    with pytest.raises(ValidationError, match="validation"):
+        project_workload(workload)

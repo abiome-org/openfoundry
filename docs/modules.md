@@ -110,7 +110,7 @@ if __name__ == "__main__":
 ```
 
 Any language works: read the request file, write the result file atomically,
-exit non-zero on error. Modules run with network denied and only `PATH`,
+exit non-zero on error. `deny` stages run with network denied and only `PATH`,
 `HOME`, `LANG`, and `TZ` from the parent environment.
 
 ## Commands

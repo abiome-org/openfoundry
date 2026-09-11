@@ -236,6 +236,10 @@ def _local_provider(context: ExecutorContext) -> Executor:
     index = context.config.get("dependencyIndex", True)
     if not isinstance(index, bool):
         raise ValidationError("local dependencyIndex must be a boolean")
+    # Validated here so typos fail fast; the factory admission gate reads it
+    # from the resolved config when a stage allows network egress.
+    if not isinstance(context.config.get("permitUnisolated", False), bool):
+        raise ValidationError("local permitUnisolated must be a boolean")
     return LocalExecutor(
         limits=resources,
         environment_root=context.state_root / "environments",
@@ -269,6 +273,13 @@ def default_executor_registry(*, discover: bool = True) -> ExecutorRegistry:
                         "description": (
                             "Whether dependency realization may use pip's configured package "
                             "index. False installs only from the wheelhouse."
+                        ),
+                    },
+                    "permitUnisolated": {
+                        "type": "boolean",
+                        "description": (
+                            "Acknowledge stages with network: allow to run without network "
+                            "denial. Default false; unacknowledged egress is an error."
                         ),
                     },
                 },

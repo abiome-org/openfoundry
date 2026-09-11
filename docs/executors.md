@@ -29,8 +29,14 @@ protocol across its execution boundary:
 | `transport:module-source` | Make the exact admitted source package available to the worker |
 | `transport:request-result` | Deliver `request.json`; retrieve `result.json` before success |
 | `transport:artifacts` | Retrieve declared artifacts into the stage run directory |
-| `isolation:network-deny` | Actually deny network egress; every module run requires it |
+| `isolation:network-deny` | Actually deny network egress; every `deny` module run requires it |
 | `protocol:openfoundry.deployment/v1` | Run deployment commands and serving workers |
+
+Stages declare `network: deny` (default) or `allow`. An `allow` stage runs
+without isolation and is admitted only when the binding sets
+`permitUnisolated: true`; the run receipt records the choice. Deny stays the
+default: data-bearing stages fail closed on hosts without user namespaces
+instead of running unisolated by accident.
 
 The local provider adds `environment:executable-drift-detection` (the worker
 re-hashes the module's interpreter immediately before exec and records the
@@ -49,6 +55,12 @@ status, logs, cancellation, and reattachment after a controller restart do not
 depend on the launching process. Set `spec.config.dependencyWheelhouse` to
 install lock contents from a local wheel directory and
 `spec.config.dependencyIndex: false` to forbid index access.
+
+macOS runs the same loop for `network: allow` stages with
+`permitUnisolated: true`: there are no user namespaces, so `deny` stages fail
+closed with a remediation instead of running exposed. Address-space limits
+cannot be enforced on macOS either; the plan records them under
+`unenforcedLimits` in `execution.json` instead of crashing the worker.
 
 ## Writing a provider
 

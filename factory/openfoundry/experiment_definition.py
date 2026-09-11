@@ -31,6 +31,9 @@ class Script(DefinitionModel):
     artifacts: dict[Name, str] = Field(default_factory=dict)
     metrics: str | None = None
     examples: str | None = None
+    # deny isolates module network egress; allow runs without isolation and
+    # requires permitUnisolated in the execution provider config.
+    network: Literal["deny", "allow"] = "deny"
     # Optional relative path the script may write a resumable/branchable
     # checkpoint to (file or directory, inside the stage output dir).
     # When present at stage end it is imported as the stage checkpoint.
@@ -321,6 +324,7 @@ def stage(
         "name": name,
         "module": module,
         "dataUse": "evaluation" if name == "evaluate" else "training",
+        "network": script.network,
         "needs": ["train"] if name == "evaluate" else [],
         "inputs": inputs if script.inputs is None else {key: inputs[key] for key in script.inputs},
         "outputs": outputs,

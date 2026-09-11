@@ -136,6 +136,21 @@ _LIMITS = {
 # provides no accelerators and performs no preemption itself.
 _COMPUTE_ACCOUNTING = frozenset({"accelerators", "memoryBytes", "costLimitUSD", "preemptible"})
 
+# POSIX limits the local executor cannot enforce on macOS. setrlimit for
+# address space fails there, so the request is recorded in plan metadata
+# instead of crashing the child in preexec_fn. Linux enforces the full set.
+_DARWIN_UNENFORCEABLE = frozenset({"addressSpaceBytes"})
+
+
+def _unenforceable_limits(limits: dict[str, Any]) -> dict[str, str]:
+    if sys.platform != "darwin":
+        return {}
+    return {
+        key: "unenforceable on macOS; recorded, not enforced"
+        for key in limits
+        if key in _DARWIN_UNENFORCEABLE
+    }
+
 
 class LocalExecutor(Executor):
     def __init__(
@@ -559,12 +574,14 @@ class LocalExecutor(Executor):
                 raise RuntimeError("network denial unavailable")
             command = (*wrapper, *command)
         merged = {**self.limits, **(resources or {})}
+        unenforced = _unenforceable_limits(merged)
+        enforced = {key: value for key, value in merged.items() if key not in unenforced}
         return ExecutionPlan(
             command,
             run_dir,
             cwd,
             env or {},
-            dict(merged),
+            dict(enforced),
             timeout or self.limits.get("timeoutSeconds"),
             deny_network,
             {
@@ -573,6 +590,8 @@ class LocalExecutor(Executor):
                 "executables": (environment or {}).get("executables", []),
                 "argvDigest": sha256_digest(list(command)),
                 "logByteLimit": _DEFAULT_LOG_BYTES,
+                "requestedResources": dict(merged),
+                "unenforcedLimits": unenforced,
             },
         )
 
@@ -588,6 +607,7 @@ class LocalExecutor(Executor):
             "requiresResult": bool(plan.metadata.get("requiresResult", True)),
             "environmentDigest": plan.metadata.get("environmentDigest"),
             "argvDigest": plan.metadata["argvDigest"],
+            "unenforcedLimits": plan.metadata.get("unenforcedLimits", {}),
         }
         self._write_execution(execution_path, record)
         request, result = plan.run_dir / "request.json", plan.run_dir / "result.json"
