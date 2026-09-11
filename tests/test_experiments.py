@@ -125,7 +125,6 @@ def test_script_candidates_review_export_and_reproduce_pinned_inputs(tmp_path):
         baseline = factory.experiments.run(definition, "baseline")
         candidate = factory.experiments.run(definition, "candidate")
         assert baseline["state"] == candidate["state"] == "succeeded"
-        # Measurement records; gating moved to promotion policy.
         assert baseline["scores"]["passed"]
         assert candidate["scores"]["passed"]
         report = review(factory.experiments, candidate["runId"], details=True)
