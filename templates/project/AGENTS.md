@@ -23,7 +23,10 @@ openfoundry experiment init --name my-model --objective "The user's task" --sour
 ```
 
 Edit `experiment.yaml` to name data, scripts, outputs, metrics, candidate
-parameters, and limits. Scripts need no OpenFoundry imports. Source capture respects
+parameters, and limits. A candidate with `from:` resumes training from a prior
+run, checkpoint, release, alias, or artifact; the train script declares `base`
+in `inputs` and receives it empty when the candidate trains from scratch.
+Scripts need no OpenFoundry imports. Source capture respects
 Git ignores and archives uncommitted edits by default. Dependency locks live
 inside each script's source directory. Custom stage graphs can use modules,
 workloads, evaluation specs, and bindings directly.

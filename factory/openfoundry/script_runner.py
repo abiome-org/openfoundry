@@ -91,6 +91,15 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
         }
         for name, path in config.get("artifacts", {}).items()
     ]
+    state: dict[str, Any] = {}
+    checkpoint = config.get("checkpoint")
+    if checkpoint:
+        checkpoint_path = _output_path(output, checkpoint)
+        if checkpoint_path.exists():
+            artifacts.append(
+                {"name": "checkpoint", "path": str(checkpoint_path), "kind": "checkpoint"}
+            )
+            state = {"checkpoint": "script-checkpoint/v1"}
     examples = config.get("examples")
     if examples:
         path = _output_path(output, examples)
@@ -114,7 +123,10 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
     measurement_path = _output_path(output.parent, "measurement.json")
     measurement_path.write_text(json.dumps(measurement))
     artifacts.append({"name": "measurement", "path": str(measurement_path), "kind": "measurement"})
-    return {"status": "ok", "outputs": values, "artifacts": artifacts}
+    result: dict[str, Any] = {"status": "ok", "outputs": values, "artifacts": artifacts}
+    if state:
+        result["state"] = state
+    return result
 
 
 def main() -> int:

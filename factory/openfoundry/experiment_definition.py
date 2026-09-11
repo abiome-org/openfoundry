@@ -20,7 +20,7 @@ Name = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]*$")]
 
 
 class DefinitionModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False, populate_by_name=True)
 
 
 class Script(DefinitionModel):
@@ -31,12 +31,16 @@ class Script(DefinitionModel):
     artifacts: dict[Name, str] = Field(default_factory=dict)
     metrics: str | None = None
     examples: str | None = None
+    # Optional relative path the script may write a resumable/branchable
+    # checkpoint to (file or directory, inside the stage output dir).
+    # When present at stage end it is imported as the stage checkpoint.
+    checkpoint: str | None = None
 
     @model_validator(mode="after")
     def outputs(self) -> Script:
-        if set(self.artifacts) & {"measurement", "examples"}:
-            raise ValueError("measurement and examples are reserved artifact names")
-        for path in [*self.artifacts.values(), self.metrics, self.examples]:
+        if set(self.artifacts) & {"measurement", "examples", "checkpoint"}:
+            raise ValueError("measurement, examples and checkpoint are reserved artifact names")
+        for path in [*self.artifacts.values(), self.metrics, self.examples, self.checkpoint]:
             if path is not None:
                 portable_relative_path(path, "script output")
         return self
@@ -80,6 +84,16 @@ class Metric(DefinitionModel):
 class Candidate(DefinitionModel):
     rationale: str = ""
     parameters: dict[str, Any] = Field(default_factory=dict)
+    # Branch/resume source for this candidate. Accepted forms:
+    # run/<id>, checkpoint/<name>, release/<name>, alias/<name>,
+    # artifact:sha256:<digest>, sha256:<digest>. A train script that declares
+    # the reserved base input receives "" for candidates without from.
+    from_ref: str | None = Field(default=None, alias="from")
+
+
+class Accelerator(DefinitionModel):
+    type: str | None = None
+    count: float = Field(default=0, ge=0)
 
 
 class Accelerator(DefinitionModel):
@@ -126,12 +140,28 @@ class ExperimentDefinition(DefinitionModel):
             raise ValueError("passed and compatibilityPassed are reserved metric names")
         if set(self.data) & set(self.train.artifacts):
             raise ValueError("dataset and training artifact names must be distinct")
+        if "base" in set(self.data) | set(self.train.artifacts):
+            raise ValueError("base is reserved for candidate branching")
         for name, script in (("train", self.train), ("evaluate", self.evaluate)):
             available = set(self.data) | (
-                set(self.train.artifacts) if name == "evaluate" else set()
+                set(self.train.artifacts) if name == "evaluate" else {"base"}
             )
             script.validate_arguments(available, self.candidates)
+        for name, candidate in self.candidates.items():
+            if candidate.from_ref is not None and not _is_branch_ref(candidate.from_ref):
+                raise ValueError(f"candidate {name!r} has an invalid from reference")
         return self
+
+
+_BRANCH_PREFIXES = ("run/", "checkpoint/", "release/", "alias/", "artifact:sha256:", "sha256:")
+
+
+def _is_branch_ref(value: str) -> bool:
+    if not value or not isinstance(value, str):
+        return False
+    if value.startswith(_BRANCH_PREFIXES):
+        return bool(value not in ("run/", "checkpoint/", "release/", "alias/"))
+    return False
 
 
 def project_path(root: Path, base: Path, value: str) -> Path:
@@ -231,6 +261,7 @@ def capture_script(root: Path, base: Path, script: Script, target: Path) -> dict
                     "dependencyLock": "openfoundry-requirements.lock",
                     "dependencyDigest": "sha256:" + hashlib.sha256(lock).hexdigest(),
                 },
+                **({"checkpoint": True} if script.checkpoint else {}),
             },
         ),
     )

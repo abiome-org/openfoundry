@@ -8,6 +8,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 from openfoundry.api import create_app
+from openfoundry.artifacts import ArtifactBuilder
 from openfoundry.candidate_review import review, write_review
 from openfoundry.cli import app
 from openfoundry.config import ProjectPaths
@@ -563,3 +564,128 @@ def test_failed_candidate_can_be_saved_without_passing_selection(tmp_path):
         with pytest.raises(IntegrityError, match="evaluation"):
             factory.promote_release("baseline")
         assert factory.show_release("baseline")["release"] == release
+
+
+def test_candidate_from_reference_validation(tmp_path):
+    _paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["candidates"]["branch"] = {
+        "rationale": "Resume from prior work.",
+        "parameters": {"offset": 0, "sleep": 0},
+        "from": "checkpoint/prior",
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    assert read_definition(definition).candidates["branch"].from_ref == "checkpoint/prior"
+    recipe["candidates"]["branch"]["from"] = "s3://elsewhere"
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+
+
+def test_train_checkpoint_declaration_is_accepted(tmp_path):
+    _paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["train"]["checkpoint"] = "ckpt.bin"
+    definition.write_text(yaml.safe_dump(recipe))
+    assert read_definition(definition).train.checkpoint == "ckpt.bin"
+    recipe["train"]["artifacts"] = {"checkpoint": "other.bin"}
+    definition.write_text(yaml.safe_dump(recipe))
+    with pytest.raises(ValidationError, match="invalid experiment"):
+        read_definition(definition)
+
+
+TRAIN_WITH_BASE = """import argparse, json, time
+from pathlib import Path
+p = argparse.ArgumentParser()
+p.add_argument("--data")
+p.add_argument("--base", default="")
+p.add_argument("--output")
+p.add_argument("--offset", type=float)
+p.add_argument("--sleep", type=float)
+a = p.parse_args()
+time.sleep(a.sleep)
+rows = json.loads(Path(a.data).read_text())
+if a.base:
+    bias = json.loads(Path(a.base).read_text())["bias"] + a.offset
+else:
+    bias = sum(row["y"] - row["x"] for row in rows) / len(rows) + a.offset
+Path(a.output).write_text(json.dumps({"bias": bias}))
+"""
+
+
+def branch_project(tmp_path):
+    paths, definition = project(tmp_path)
+    (paths.root / "src/train.py").write_text(TRAIN_WITH_BASE)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["train"]["inputs"] = ["samples", "base"]
+    recipe["train"]["command"] = [
+        "python3",
+        "train.py",
+        "--data",
+        "{inputs[samples]}",
+        "--base",
+        "{inputs[base]}",
+        "--output",
+        "{output}/model.json",
+        "--offset",
+        "{parameters[offset]}",
+        "--sleep",
+        "{parameters[sleep]}",
+    ]
+    recipe["candidates"]["branch"] = {
+        "rationale": "Resume from prior work.",
+        "parameters": {"offset": -1, "sleep": 0},
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    return paths, definition
+
+
+def train_stage_inputs(paths, generated):
+    workload = yaml.safe_load((paths.root / generated / "workload.yaml").read_text())
+    train = next(stage for stage in workload["spec"]["graph"]["stages"] if stage["name"] == "train")
+    return train["inputs"]
+
+
+@pytest.mark.parametrize("declare_inputs", [True, False])
+def test_prepare_compiles_scratch_and_branch_candidates_with_base_input(
+    tmp_path, monkeypatch, declare_inputs
+):
+    paths, definition = branch_project(tmp_path)
+    if not declare_inputs:
+        recipe = yaml.safe_load(definition.read_text())
+        recipe["train"].pop("inputs")
+        definition.write_text(yaml.safe_dump(recipe))
+    prior = tmp_path / "prior-model.json"
+    prior.write_text(json.dumps({"bias": 2.0}))
+    with Factory(paths) as factory:
+        branch_ref = ArtifactBuilder(factory.local_store).import_path(prior).manifest_digest
+        recipe = yaml.safe_load(definition.read_text())
+        recipe["candidates"]["branch"]["from"] = branch_ref
+        definition.write_text(yaml.safe_dump(recipe))
+        if not LocalExecutor._network_namespace_available():
+            monkeypatch.setattr(
+                factory, "_require_executor", lambda *args, **kwargs: {"ready": True}
+            )
+            monkeypatch.setattr(factory, "_admit_module_environments", lambda *args, **kwargs: {})
+        baseline = factory.experiments.prepare(definition, "baseline")
+        branch = factory.experiments.prepare(definition, "branch")
+        assert baseline["state"] == branch["state"] == "pending"
+        assert train_stage_inputs(paths, baseline["generated"])["base"] == ""
+        assert train_stage_inputs(paths, branch["generated"])["base"] == branch_ref
+
+
+def test_branch_candidate_resumes_from_prior_run(tmp_path):
+    if not LocalExecutor._network_namespace_available():
+        pytest.skip("unprivileged user namespaces are unavailable on this host")
+    paths, definition = branch_project(tmp_path)
+    with Factory(paths) as factory:
+        baseline = factory.experiments.run(definition, "baseline")
+        assert not baseline["scores"]["passed"]
+        recipe = yaml.safe_load(definition.read_text())
+        recipe["candidates"]["branch"]["from"] = f"run/{baseline['id']}"
+        definition.write_text(yaml.safe_dump(recipe))
+        branch = factory.experiments.run(definition, "branch")
+        assert branch["state"] == "succeeded"
+        # The branch trains from the baseline model; a from-scratch run with
+        # the same offset would fail the accuracy minimum.
+        assert branch["scores"]["passed"]
