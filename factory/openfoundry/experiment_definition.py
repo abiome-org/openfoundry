@@ -70,15 +70,7 @@ class Dataset(DefinitionModel):
 
 class Metric(DefinitionModel):
     direction: Literal["maximize", "minimize"] = "maximize"
-    minimum: float | None = None
-    maximum: float | None = None
     maxRegression: float | None = Field(default=None, ge=0)
-
-    @model_validator(mode="after")
-    def bounds(self) -> Metric:
-        if self.minimum is not None and self.maximum is not None and self.minimum > self.maximum:
-            raise ValueError("metric minimum exceeds maximum")
-        return self
 
 
 class Candidate(DefinitionModel):
@@ -341,14 +333,7 @@ def stage(
 
 
 def evaluation_spec(definition: ExperimentDefinition) -> dict[str, Any]:
-    metrics = [
-        {
-            "name": name,
-            "output": f"evaluate.{name}",
-            **metric.model_dump(include={"minimum", "maximum"}, exclude_none=True),
-        }
-        for name, metric in definition.metrics.items()
-    ]
+    metrics = [{"name": name, "output": f"evaluate.{name}"} for name in definition.metrics]
     spec = {"metrics": metrics, "extensions": {"command": definition.evaluate.command}}
     return resource("EvaluationSpec", f"{definition.name}-{sha256_digest(spec)[7:19]}", spec)
 
@@ -381,7 +366,7 @@ def initialize(
                 ],
                 metrics="metrics.json",
             ),
-            "metrics": {"accuracy": Metric(minimum=0.8)},
+            "metrics": {"accuracy": Metric()},
             "candidates": {
                 "baseline": Candidate(rationale="Establish the current model's performance.")
             },

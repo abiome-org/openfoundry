@@ -125,7 +125,8 @@ def test_script_candidates_review_export_and_reproduce_pinned_inputs(tmp_path):
         baseline = factory.experiments.run(definition, "baseline")
         candidate = factory.experiments.run(definition, "candidate")
         assert baseline["state"] == candidate["state"] == "succeeded"
-        assert not baseline["scores"]["passed"]
+        # Measurement records; gating moved to promotion policy.
+        assert baseline["scores"]["passed"]
         assert candidate["scores"]["passed"]
         report = review(factory.experiments, candidate["runId"], details=True)
         assert report["comparison"]["decision"] == "candidate"
@@ -556,11 +557,34 @@ def test_failed_candidate_can_be_saved_without_passing_selection(tmp_path):
     paths, definition = project(tmp_path)
     with Factory(paths) as factory:
         baseline = factory.experiments.run(definition, "baseline")
+        # Inner loop records; the project gates quality at promotion.
+        (paths.root / "policies/local.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "apiVersion": "openfoundry.dev/v1alpha1",
+                    "kind": "Policy",
+                    "metadata": {"name": "local"},
+                    "spec": {
+                        "rules": [
+                            {
+                                "name": "project-owner",
+                                "effect": "allow",
+                                "match": {"actor": "local-user"},
+                            }
+                        ],
+                        "config": {
+                            "dirtyWorktree": "archive",
+                            "promotion": {"thresholds": {"accuracy": {"minimum": 0.5}}},
+                        },
+                    },
+                }
+            )
+        )
         release = factory.create_release(baseline["runId"], name="baseline", intended_use="test")
         manifest = release["spec"]["extensions"]["manifest"]
         assert manifest["evaluations"]
-        assert manifest["assessment"]["evaluation_passed"] is False
-        with pytest.raises(IntegrityError, match="evaluation"):
+        assert manifest["assessment"]["metric_scores"]["accuracy"] == 0
+        with pytest.raises(IntegrityError, match="threshold"):
             factory.promote_release("baseline")
         assert factory.show_release("baseline")["release"] == release
 
@@ -651,3 +675,36 @@ def test_leaderboard_empty_before_runs(tmp_path):
         assert board["primaryMetric"] == "accuracy"
         assert board["entries"] == []
         assert board["best"] is None
+
+
+def test_uncertainty_extraction_records_finite_stats():
+    from openfoundry.evaluation import EvaluationService
+
+    assert EvaluationService.extract_uncertainty({"evaluate.accuracy": 0.9}) == {}
+    assert EvaluationService.extract_uncertainty(
+        {"evaluate.uncertainty": {"accuracy": {"std": 0.02, "n": 10}}}
+    ) == {"accuracy": {"std": 0.02, "n": 10.0}}
+    assert EvaluationService.extract_uncertainty({"evaluate.uncertainty": "sha256:abc"}) == {}
+    assert (
+        EvaluationService.extract_uncertainty(
+            {"evaluate.uncertainty": {"accuracy": {"std": float("nan")}}}
+        )
+        == {}
+    )
+    assert EvaluationService.extract_uncertainty({"evaluate.uncertainty": [1]}) == {}
+
+
+def test_data_exposure_flags_held_out():
+    from openfoundry.candidate_review import _data_exposure
+
+    definition = {"data": {"a": {}, "b": {}}, "train": {"inputs": ["a"]}}
+    assert _data_exposure(definition, {"datasets": {"b": {}}}) == {
+        "trainDatasets": ["a"],
+        "evalDatasets": ["b"],
+        "heldOut": True,
+    }
+    assert _data_exposure(definition, {"datasets": {"a": {}, "b": {}}})["heldOut"] is False
+    assert (
+        _data_exposure({"data": {"a": {}}, "train": {}}, {"datasets": {"a": {}}})["heldOut"]
+        is False
+    )

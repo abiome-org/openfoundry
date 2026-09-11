@@ -30,6 +30,37 @@ class EvaluationService:
         self.factory = factory
 
     @staticmethod
+    def extract_uncertainty(outputs: dict[str, Any]) -> dict[str, dict[str, float]]:
+        """Evaluator-reported spread per metric, recorded as evidence.
+
+        Convention: an inline output named `<stage>.uncertainty` holding
+        `{metric: {stat: number}}` with finite values (e.g. std, n, ci95).
+        Anything else yields no uncertainty rather than a failure.
+        """
+        raw: Any = None
+        for key, value in outputs.items():
+            if key.lower().endswith(".uncertainty"):
+                raw = value
+        if not isinstance(raw, dict):
+            return {}
+        uncertainty: dict[str, dict[str, float]] = {}
+        for metric, stats in raw.items():
+            if not isinstance(metric, str) or not isinstance(stats, dict):
+                return {}
+            converted: dict[str, float] = {}
+            for stat, number in stats.items():
+                if (
+                    not isinstance(stat, str)
+                    or isinstance(number, bool)
+                    or not isinstance(number, (int, float))
+                    or not math.isfinite(float(number))
+                ):
+                    return {}
+                converted[stat] = float(number)
+            uncertainty[metric] = converted
+        return uncertainty
+
+    @staticmethod
     def _compatibility_equal(expected: Any, actual: Any, tolerance: dict[str, Any]) -> bool:
         if isinstance(expected, bool) or isinstance(actual, bool):
             return bool(expected == actual)
@@ -167,17 +198,10 @@ class EvaluationService:
             for metric in suite["spec"]["metrics"]:
                 value = outputs.get(metric["output"])
                 metric_scores[metric["name"]] = value
-                if isinstance(value, (bool, int, float)):
-                    numeric = float(value)
-                else:
+                if not isinstance(value, (bool, int, float)):
                     failures.append(
                         {"kind": "metric", "metric": metric["name"], "message": "missing value"}
                     )
-                    continue
-                if "minimum" in metric and numeric < float(metric["minimum"]):
-                    failures.append({"kind": "threshold", "metric": metric["name"]})
-                if "maximum" in metric and numeric > float(metric["maximum"]):
-                    failures.append({"kind": "threshold", "metric": metric["name"]})
         model_package_ref = run_resource["spec"]["extensions"].get("modelPackageRef")
         if model_package_ref:
             model_package = self.factory._resource_by_uri("ModelPackage", model_package_ref)
@@ -221,7 +245,7 @@ class EvaluationService:
                         "runResultRef": self.factory._resource_uri(run_result),
                         "runStatusVersion": run_status["statusVersion"],
                     },
-                    "uncertainty": {},
+                    "uncertainty": EvaluationService.extract_uncertainty(outputs),
                     "failures": failures,
                     "extensions": {
                         "passed": passed,
