@@ -1,8 +1,10 @@
 # Evaluation
 
-Evaluation turns a run into immutable evidence: metric thresholds from an
+Evaluation turns a run into immutable evidence: metric values from an
 `EvaluationSpec`, compatibility vectors from a `ModelPackage`, and boolean
 pass outputs from evaluator stages combine into one `EvaluationResult`.
+Recording never gates: thresholds live in promotion policy, so the inner loop
+ranks by the primary metric instead of failing early.
 
 ## Learning from results
 
@@ -70,15 +72,16 @@ metadata:
   name: example-affine
 spec:
   metrics:
-    - {name: training-loss, output: train.loss, maximum: 0.000001}
-    - {name: parameter-check, output: evaluate.passed, minimum: 1.0}
+    - {name: training-loss, output: train.loss}
+    - {name: parameter-check, output: evaluate.passed}
 ```
 
-Each metric names a run output and an optional `minimum` or `maximum`. Metric
-names must be unique and may not be `passed` or `compatibilityPassed`. Each run
-pins its evaluation spec at admission. Revise the spec when it needs improvement;
-compare candidates using the same revision so a protocol change is not mistaken
-for a model improvement.
+Each metric names a run output. Metric names must be unique and may not be
+`passed` or `compatibilityPassed`. Each run pins its evaluation spec at
+admission. Revise the spec when it needs improvement; compare candidates using
+the same revision so a protocol change is not mistaken for a model improvement.
+Quality bars belong to promotion policy (`promotion.thresholds`), not to the
+spec — see [releases](releases.md).
 
 ## Evaluating a run
 
@@ -87,11 +90,12 @@ openfoundry --actor research-agent evaluate run/<run-id>
 openfoundry resource list --kind EvaluationResult
 ```
 
-`evaluate` reads the run result, applies every metric threshold, runs the
+`evaluate` reads the run result, records every metric value, runs the
 compatibility vectors through the admitted serving module, collects every
 boolean output named `*.passed`, and publishes `EvaluationResult`
 `evaluation-<run-id>` with `scores` (each metric, `passed`, and
-`compatibilityPassed`), `failures`, and the exact evaluation and model package
+`compatibilityPassed`), `uncertainty` (evaluator-reported per-metric stats from
+an `uncertainty` output when present), `failures`, and the exact evaluation and model package
 revisions it used. A run without a model package passes compatibility only
 when an evaluator stage emits `compatibilityPassed: true` itself.
 
@@ -109,3 +113,5 @@ or `tie` with the delta. References may be `run/<id>`, an evaluation result
 name, or a full `openfoundry://` URI. Statistical treatment, repeats, slices, and
 uncertainty belong to evaluator modules and their artifacts; the experiment
 decision is only as strong as the metric behind it. Record the conclusion and experiment revision in the model card.
+For sweeps, `experiment search` expands a grid into trials and
+`experiment leaderboard` ranks them best-first by the primary metric.

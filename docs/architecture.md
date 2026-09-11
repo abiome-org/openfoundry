@@ -37,9 +37,9 @@ share its database, stores, identity, policy, and executor registry.
 
 | Owner | Responsibility |
 | --- | --- |
-| `experiment_definition.py`, `experiments.py` | Compile ordinary scripts into runs; review, reproduce, and export their results |
+| `experiment_definition.py`, `experiments.py` | Compile ordinary scripts into runs; search sweeps, ranked review, reproduce, and export their results |
 | `script_runner.py` | Standalone standard-library script adapter, captured with source |
-| `factory.py`, `run_control.py` | Admission, stage execution, durable recovery, cancellation, and result publication |
+| `factory.py`, `run_support.py`, `run_control.py` | Admission, stage execution, durable recovery, cancellation, and result publication |
 | `evaluation.py`, `candidate_review.py` | Measurement, compatibility checks, comparisons, and reports |
 | `publishing.py`, `releases.py` | Signed model versions and atomic alias movement |
 | `deployments.py` | Serving admission, worker attachment, status, cancellation, and rollback |

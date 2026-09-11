@@ -14,8 +14,9 @@ openfoundry release list
 
 `release create --promote` combines saving and selection. Promotion and deployment
 verify the signature and check current data rights and project requirements.
-By default, evaluation must pass. Projects can also require compatibility or a
-vulnerability scan, or allow selection without a passing evaluation:
+By default, evaluation must pass. Projects can also require compatibility, metric
+thresholds from recorded scores, or a vulnerability scan, or allow selection
+without a passing evaluation:
 
 ```yaml
 config:
@@ -23,6 +24,8 @@ config:
     requireEvaluationPass: true
     requireCompatibilityPass: false
     requireVulnerabilityScan: false
+    thresholds:
+      accuracy: {minimum: 0.8}
 ```
 
 Lineage and current rights are always checked. Actor authorization is enforced

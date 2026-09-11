@@ -551,6 +551,19 @@ def experiment_run(
     _run(lambda factory: factory.experiments.run(definition, candidate, detach=detach))
 
 
+@_action_command(experiment_app, "experiment.search")
+def experiment_search(
+    definition: Path,
+    detach: bool = typer.Option(False),
+) -> None:
+    _run(lambda factory: factory.experiments.run_search(definition, detach=detach))
+
+
+@_action_command(experiment_app, "experiment.leaderboard")
+def experiment_leaderboard(definition: Path) -> None:
+    _run(lambda factory: factory.experiments.leaderboard(definition))
+
+
 @_action_command(experiment_app, "experiment.list")
 def experiment_list(name: str | None = typer.Option(None)) -> None:
     _run(lambda factory: factory.experiments.list(name))

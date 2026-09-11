@@ -33,7 +33,7 @@ spec: {owners: [local-user], extensions: {}}
         app, ["--project", str(root), "--output", "json", "agent", "capabilities"]
     )
     assert capabilities.exit_code == 0
-    assert json.loads(capabilities.stdout)["catalogVersion"] == 2
+    assert json.loads(capabilities.stdout)["catalogVersion"] == 3
     context = runner.invoke(app, ["--project", str(root), "--output", "json", "agent", "context"])
     assert context.exit_code == 0
     assert json.loads(context.stdout)["bootstrapPlan"]["actions"]

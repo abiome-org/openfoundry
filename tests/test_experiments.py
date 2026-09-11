@@ -708,3 +708,36 @@ def test_data_exposure_flags_held_out():
         _data_exposure({"data": {"a": {}}, "train": {}}, {"datasets": {"a": {}}})["heldOut"]
         is False
     )
+
+
+def test_cli_search_and_leaderboard_surface(tmp_path):
+    _paths, definition = project(tmp_path)
+    runner = CliRunner()
+    board = runner.invoke(
+        app,
+        [
+            "--project",
+            str(definition.parent),
+            "--output",
+            "json",
+            "experiment",
+            "leaderboard",
+            str(definition),
+        ],
+    )
+    assert board.exit_code == 0, board.output
+    assert json.loads(board.stdout)["entries"] == []
+    missing = runner.invoke(
+        app,
+        [
+            "--project",
+            str(definition.parent),
+            "--output",
+            "json",
+            "experiment",
+            "search",
+            str(definition),
+        ],
+    )
+    assert missing.exit_code == 1
+    assert json.loads(missing.output)["error"]["code"] == "validation_error"

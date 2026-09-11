@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- Break the iteration loop toward compute-led search (action catalog version 3,
+  no automatic state migration):
+  - `Binding.resources` and experiment `limits` gain first-class
+    `accelerators`, `memoryBytes`, `costLimitUSD`, and `preemptible`. Local runs
+    CPU-only and reports an issue when accelerators are requested. Measurements
+    always carry `gpuSeconds` and `monetaryCostUSD`.
+  - Candidates accept `from: run/<id> | checkpoint/<name> | release/<name> |
+    alias/<name>` and scripts may declare a `checkpoint` output that is
+    published for branching. Indeterminate recovery points at surviving
+    checkpoints instead of a dead end.
+  - Experiment definitions accept a `search` sweep (grid/count, concurrency,
+    `maxRuns`/`maxCostUSD` budget). `experiment search` runs trials;
+    `experiment leaderboard` ranks them best-first by the primary metric.
+  - `EvaluationSpec` no longer carries `minimum`/`maximum` and experiment
+    metrics no longer carry thresholds. Evaluation records values plus
+    evaluator-reported uncertainty; project `promotion.thresholds` gates
+    selection on recorded scores. Reviews report held-out data exposure.
+- Recreate releases from recorded runs before promotion. Rewrite bindings and
+  experiment definitions that used removed threshold fields; move quality bars
+  into promotion policy. Old runs, datasets, and artifacts remain readable.
+- Split run helpers from `factory.py` into `run_support.py` with no behavior
+  change.
+
 - Rebrand the repository, CLI, Python package, configuration, protocols, and
   environment variables to OpenFoundry. This is a breaking rename without
   automatic state migration; see the operations runbook before upgrading.
