@@ -78,7 +78,8 @@ class Candidate(DefinitionModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
     # Branch/resume source for this candidate. Accepted forms:
     # run/<id>, checkpoint/<name>, release/<name>, alias/<name>,
-    # artifact:sha256:<digest>, sha256:<digest>.
+    # artifact:sha256:<digest>, sha256:<digest>. A train script that declares
+    # the reserved base input receives "" for candidates without from.
     from_ref: str | None = Field(default=None, alias="from")
 
 
@@ -179,10 +180,8 @@ class ExperimentDefinition(DefinitionModel):
         if "base" in set(self.data) | set(self.train.artifacts):
             raise ValueError("base is reserved for candidate branching")
         for name, script in (("train", self.train), ("evaluate", self.evaluate)):
-            available = (
-                set(self.data)
-                | {"base"}
-                | (set(self.train.artifacts) if name == "evaluate" else set())
+            available = set(self.data) | (
+                set(self.train.artifacts) if name == "evaluate" else {"base"}
             )
             script.validate_arguments(available, self.candidates)
         for name, candidate in self.candidates.items():
