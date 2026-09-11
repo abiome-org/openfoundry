@@ -25,11 +25,13 @@ openfoundry experiment init --name my-model --objective "The user's task" --sour
 Edit `experiment.yaml` to name data, scripts, outputs, metrics, candidate
 parameters, and limits. Add a `search` block (grid/count, concurrency, budget)
 to sweep instead of hand-editing candidates, and `from: run/<id>` (or a
-checkpoint, release, or alias) to branch a candidate from prior work. A train
-`checkpoint` path is published for reuse. Scripts need no OpenFoundry imports.
-Source capture respects Git ignores and archives uncommitted edits by default.
-Dependency locks live inside each script's source directory. Custom stage graphs
-can use modules, workloads, evaluation specs, and bindings directly.
+checkpoint, release, or artifact) to branch a candidate from prior work; the
+train script declares `base` in `inputs` and receives it empty when the
+candidate trains from scratch. A train `checkpoint` path is published for
+reuse. Scripts need no OpenFoundry imports. Source capture respects Git ignores
+and archives uncommitted edits by default. Dependency locks live inside each
+script's source directory. Custom stage graphs can use modules, workloads,
+evaluation specs, and bindings directly.
 
 ```sh
 openfoundry experiment run experiment.yaml --candidate baseline

@@ -161,3 +161,17 @@ def test_promotion_thresholds_gate_on_recorded_scores():
         ).outcome
         == "deny"
     )
+
+
+def test_promotion_thresholds_reject_non_finite_scores():
+    evidence = {
+        "lineage_complete": True,
+        "rights_valid": True,
+        "evaluation_passed": True,
+    }
+    for score in (float("inf"), float("-inf"), float("nan")):
+        gated = promotion_gate(
+            {**evidence, "metric_scores": {"accuracy": score}},
+            {"thresholds": {"accuracy": {"minimum": 0.1}}},
+        )
+        assert gated.outcome == "deny"

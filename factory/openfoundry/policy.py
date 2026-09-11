@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -250,7 +251,11 @@ def promotion_gate(
     scores = evidence.get("metric_scores") or {}
     for metric, bounds in thresholds.items():
         value = scores.get(metric)
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+        ):
             checks[f"threshold:{metric}"] = False
             continue
         number = float(value)

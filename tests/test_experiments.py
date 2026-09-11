@@ -8,10 +8,16 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 from openfoundry.api import create_app
+from openfoundry.artifacts import ArtifactBuilder
 from openfoundry.candidate_review import review, write_review
 from openfoundry.cli import app
 from openfoundry.config import ProjectPaths
-from openfoundry.errors import IntegrityError, OperationCanceled, ValidationError
+from openfoundry.errors import (
+    AuthorizationError,
+    IntegrityError,
+    OperationCanceled,
+    ValidationError,
+)
 from openfoundry.executors import LocalExecutor
 from openfoundry.experiment_definition import initialize, read_definition
 from openfoundry.factory import Factory
@@ -125,7 +131,6 @@ def test_script_candidates_review_export_and_reproduce_pinned_inputs(tmp_path):
         baseline = factory.experiments.run(definition, "baseline")
         candidate = factory.experiments.run(definition, "candidate")
         assert baseline["state"] == candidate["state"] == "succeeded"
-        # Measurement records; gating moved to promotion policy.
         assert baseline["scores"]["passed"]
         assert candidate["scores"]["passed"]
         report = review(factory.experiments, candidate["runId"], details=True)
@@ -741,3 +746,248 @@ def test_cli_search_and_leaderboard_surface(tmp_path):
     )
     assert missing.exit_code == 1
     assert json.loads(missing.output)["error"]["code"] == "validation_error"
+
+
+def test_leaderboard_ranks_best_first_by_primary_metric(tmp_path):
+    paths, definition = project(tmp_path)
+    with Factory(paths) as factory:
+        baseline = factory.experiments.run(definition, "baseline")
+        candidate = factory.experiments.run(definition, "candidate")
+        board = factory.experiments.leaderboard(definition)
+        assert board["direction"] == "maximize"
+        assert [entry["runId"] for entry in board["entries"]] == [
+            candidate["runId"],
+            baseline["runId"],
+        ]
+        assert board["entries"][0]["score"] == 1
+        assert board["entries"][1]["score"] == 0
+        assert board["best"]["runId"] == candidate["runId"]
+        assert not board["best"]["staleDefinition"]
+        assert board["best"]["costUSD"] == 0.0
+
+
+def test_leaderboard_minimize_metric_ranks_lowest_first(tmp_path):
+    paths, definition = project(tmp_path)
+    (paths.root / "src/evaluate.py").write_text(
+        EVALUATE.replace(
+            '"passed": True,',
+            '"passed": True, "loss": 1 - sum(row["score"] for row in results) / len(results),',
+        )
+    )
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["primaryMetric"] = "loss"
+    recipe["metrics"] = {
+        "accuracy": {"direction": "maximize"},
+        "loss": {"direction": "minimize"},
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        baseline = factory.experiments.run(definition, "baseline")
+        candidate = factory.experiments.run(definition, "candidate")
+        board = factory.experiments.leaderboard(definition)
+        assert board["direction"] == "minimize"
+        assert [entry["runId"] for entry in board["entries"]] == [
+            candidate["runId"],
+            baseline["runId"],
+        ]
+        assert board["entries"][0]["score"] == 0
+        assert board["entries"][1]["score"] == 1
+        assert board["best"]["runId"] == candidate["runId"]
+
+
+def test_leaderboard_places_unscored_runs_last(tmp_path):
+    paths, definition = project(tmp_path)
+    with Factory(paths) as factory:
+        candidate = factory.experiments.run(definition, "candidate")
+        operation = factory.experiments.prepare(definition, "baseline")
+        factory.run_control.request(operation["id"], "No longer needed")
+        board = factory.experiments.leaderboard(definition)
+        assert board["entries"][-1]["state"] == "canceled"
+        assert board["entries"][-1]["score"] is None
+        assert [entry["runId"] for entry in board["entries"][:-1]] == [candidate["runId"]]
+        assert board["best"]["runId"] == candidate["runId"]
+
+
+def test_run_search_expands_grid_and_runs_trials(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {
+        "template": "baseline",
+        "grid": {"offset": [0, 2]},
+        "concurrency": 4,
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        result = factory.experiments.run_search(definition)
+        assert result["experiment"] == "regression"
+        assert result["template"] == "baseline"
+        assert result["trials"] == 2
+        assert result["completed"] == 2
+        assert result["concurrency"] == 4
+        assert result["spentUSD"] == 0.0
+        assert result["stopped"] is None
+        assert [run["state"] for run in result["runs"]] == ["succeeded", "succeeded"]
+        assert [run["parameters"]["offset"] for run in result["runs"]] == [0, 2]
+        listed = factory.experiments.list("regression")
+        assert [item["candidate"] for item in listed] == ["baseline-s01", "baseline-s00"]
+        assert [item["scores"]["accuracy"] for item in listed] == [0, 1]
+        board = factory.experiments.leaderboard(definition)
+        assert board["best"]["candidate"] == "baseline-s00"
+        report = review(factory.experiments, board["best"]["runId"])
+        assert report["candidate"]["parameters"] == {"offset": 0, "sleep": 0}
+
+
+def test_run_search_budget_cost_stops_sweep_early(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {
+        "template": "baseline",
+        "grid": {"offset": [0, 1, 2]},
+        "budget": {"maxCostUSD": 8.0},
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        factory.experiments._measured_cost = lambda run_id: 5.0
+        result = factory.experiments.run_search(definition)
+        assert result["trials"] == 3
+        assert result["completed"] == 2
+        assert result["spentUSD"] == 10.0
+        assert result["stopped"] == {
+            "reason": "budget.maxCostUSD exceeded",
+            "spentUSD": 10.0,
+            "completedTrials": 2,
+            "remainingTrials": 1,
+        }
+
+
+def _deny_search(paths, action):
+    policy_path = paths.root / "policies/local.yaml"
+    policy = yaml.safe_load(policy_path.read_text())
+    policy["spec"]["rules"].append(
+        {"name": f"no-{action}", "effect": "deny", "match": {"action": action}}
+    )
+    policy_path.write_text(yaml.safe_dump(policy))
+
+
+def test_run_search_authorizes_experiment_search(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {"template": "baseline", "grid": {"offset": [0, 1]}}
+    definition.write_text(yaml.safe_dump(recipe))
+    _deny_search(paths, "experiment.search")
+    with Factory(paths) as factory:
+        with pytest.raises(AuthorizationError, match=r"'experiment.search'"):
+            factory.experiments.run_search(definition)
+        assert factory.experiments.list("regression") == []
+
+
+def test_run_search_rejects_cost_budget_with_detach(tmp_path):
+    paths, definition = project(tmp_path)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["search"] = {
+        "template": "baseline",
+        "grid": {"offset": [0, 1]},
+        "budget": {"maxCostUSD": 8.0},
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    with Factory(paths) as factory:
+        with pytest.raises(ValidationError, match=r"budget\.maxCostUSD requires sequential trials"):
+            factory.experiments.run_search(definition, detach=True)
+        assert factory.experiments.list("regression") == []
+
+
+TRAIN_WITH_BASE = """import argparse, json, time
+from pathlib import Path
+p = argparse.ArgumentParser()
+p.add_argument("--data")
+p.add_argument("--base", default="")
+p.add_argument("--output")
+p.add_argument("--offset", type=float)
+p.add_argument("--sleep", type=float)
+a = p.parse_args()
+time.sleep(a.sleep)
+rows = json.loads(Path(a.data).read_text())
+if a.base:
+    bias = json.loads(Path(a.base).read_text())["bias"] + a.offset
+else:
+    bias = sum(row["y"] - row["x"] for row in rows) / len(rows) + a.offset
+Path(a.output).write_text(json.dumps({"bias": bias}))
+"""
+
+
+def branch_project(tmp_path):
+    paths, definition = project(tmp_path)
+    (paths.root / "src/train.py").write_text(TRAIN_WITH_BASE)
+    recipe = yaml.safe_load(definition.read_text())
+    recipe["train"]["inputs"] = ["samples", "base"]
+    recipe["train"]["command"] = [
+        "python3",
+        "train.py",
+        "--data",
+        "{inputs[samples]}",
+        "--base",
+        "{inputs[base]}",
+        "--output",
+        "{output}/model.json",
+        "--offset",
+        "{parameters[offset]}",
+        "--sleep",
+        "{parameters[sleep]}",
+    ]
+    recipe["candidates"]["branch"] = {
+        "rationale": "Resume from prior work.",
+        "parameters": {"offset": -1, "sleep": 0},
+    }
+    definition.write_text(yaml.safe_dump(recipe))
+    return paths, definition
+
+
+def train_stage_inputs(paths, generated):
+    workload = yaml.safe_load((paths.root / generated / "workload.yaml").read_text())
+    train = next(stage for stage in workload["spec"]["graph"]["stages"] if stage["name"] == "train")
+    return train["inputs"]
+
+
+@pytest.mark.parametrize("declare_inputs", [True, False])
+def test_prepare_compiles_scratch_and_branch_candidates_with_base_input(
+    tmp_path, monkeypatch, declare_inputs
+):
+    paths, definition = branch_project(tmp_path)
+    if not declare_inputs:
+        recipe = yaml.safe_load(definition.read_text())
+        recipe["train"].pop("inputs")
+        definition.write_text(yaml.safe_dump(recipe))
+    prior = tmp_path / "prior-model.json"
+    prior.write_text(json.dumps({"bias": 2.0}))
+    with Factory(paths) as factory:
+        branch_ref = ArtifactBuilder(factory.local_store).import_path(prior).manifest_digest
+        recipe = yaml.safe_load(definition.read_text())
+        recipe["candidates"]["branch"]["from"] = branch_ref
+        definition.write_text(yaml.safe_dump(recipe))
+        if not LocalExecutor._network_namespace_available():
+            monkeypatch.setattr(
+                factory, "_require_executor", lambda *args, **kwargs: {"ready": True}
+            )
+            monkeypatch.setattr(factory, "_admit_module_environments", lambda *args, **kwargs: {})
+        baseline = factory.experiments.prepare(definition, "baseline")
+        branch = factory.experiments.prepare(definition, "branch")
+        assert baseline["state"] == branch["state"] == "pending"
+        assert train_stage_inputs(paths, baseline["generated"])["base"] == ""
+        assert train_stage_inputs(paths, branch["generated"])["base"] == branch_ref
+
+
+def test_branch_candidate_resumes_from_prior_run(tmp_path):
+    if not LocalExecutor._network_namespace_available():
+        pytest.skip("unprivileged user namespaces are unavailable on this host")
+    paths, definition = branch_project(tmp_path)
+    with Factory(paths) as factory:
+        baseline = factory.experiments.run(definition, "baseline")
+        assert baseline["scores"]["accuracy"] == 0
+        recipe = yaml.safe_load(definition.read_text())
+        recipe["candidates"]["branch"]["from"] = f"run/{baseline['id']}"
+        definition.write_text(yaml.safe_dump(recipe))
+        branch = factory.experiments.run(definition, "branch")
+        assert branch["state"] == "succeeded"
+        # The branch resumes the baseline model with offset -1 and recovers
+        # perfect accuracy; a from-scratch run with the same offset scores 0.
+        assert branch["scores"]["accuracy"] == 1
