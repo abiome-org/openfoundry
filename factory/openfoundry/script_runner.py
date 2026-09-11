@@ -105,6 +105,11 @@ def run(request: dict[str, Any]) -> dict[str, Any]:
     measurement = {
         "wallSeconds": elapsed,
         "cpuSeconds": usage.ru_utime + usage.ru_stime - before.ru_utime - before.ru_stime,
+        # Local script execution has no accelerator visibility and no cost model;
+        # remote executors report actual values. Keys are always present so
+        # search can budget on spend, not just elapsed time.
+        "gpuSeconds": 0.0,
+        "monetaryCostUSD": 0.0,
     }
     measurement_path = _output_path(output.parent, "measurement.json")
     measurement_path.write_text(json.dumps(measurement))

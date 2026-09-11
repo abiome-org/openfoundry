@@ -82,12 +82,21 @@ class Candidate(DefinitionModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
 
 
+class Accelerator(DefinitionModel):
+    type: str | None = None
+    count: float = Field(default=0, ge=0)
+
+
 class Limits(DefinitionModel):
     timeoutSeconds: float = Field(default=3600, gt=0)
     cpuSeconds: float | None = Field(default=None, gt=0)
     addressSpaceBytes: int | None = Field(default=None, gt=0)
     processes: int | None = Field(default=None, gt=0)
     fileSizeBytes: int | None = Field(default=None, gt=0)
+    memoryBytes: int | None = Field(default=None, gt=0)
+    costLimitUSD: float | None = Field(default=None, gt=0)
+    preemptible: bool = False
+    accelerators: Accelerator | None = None
 
 
 class ExperimentDefinition(DefinitionModel):

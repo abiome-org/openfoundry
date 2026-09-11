@@ -664,6 +664,16 @@ def test_local_executor_applies_binding_resource_limits(tmp_path):
     assert LocalExecutor(limits={"gpus": 1}).preflight() == [
         "unsupported local resource limits: gpus"
     ]
+    assert LocalExecutor(limits={"accelerators": {"count": 0}}).preflight() == []
+    assert LocalExecutor(limits={"accelerators": {"count": 1}}).preflight() == [
+        "local executor provides no accelerators"
+    ]
+    assert (
+        LocalExecutor(
+            limits={"memoryBytes": 1024, "costLimitUSD": 1.5, "preemptible": True}
+        ).preflight()
+        == []
+    )
     executor = LocalExecutor(limits={"addressSpaceBytes": 1024**3})
     assert executor.preflight() == []
     hungry = _finish(executor, tmp_path / "hungry", ["python3", "-c", "x = bytearray(4 * 1024**3)"])

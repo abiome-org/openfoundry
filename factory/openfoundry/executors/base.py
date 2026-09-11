@@ -25,7 +25,7 @@ class ExecutionPlan:
     run_dir: Path
     cwd: Path
     env: dict[str, str] = field(default_factory=dict)
-    resources: dict[str, int | float] = field(default_factory=dict)
+    resources: dict[str, Any] = field(default_factory=dict)
     timeout: float | None = None
     deny_network: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)

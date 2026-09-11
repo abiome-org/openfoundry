@@ -131,6 +131,11 @@ _LIMITS = {
     "fileSizeBytes": resource.RLIMIT_FSIZE,
 }
 
+# First-class compute/budget fields carried in Binding.resources for
+# accounting and scheduling. Local enforces only POSIX rlimits; it
+# provides no accelerators and performs no preemption itself.
+_COMPUTE_ACCOUNTING = frozenset({"accelerators", "memoryBytes", "costLimitUSD", "preemptible"})
+
 
 class LocalExecutor(Executor):
     def __init__(
@@ -158,6 +163,8 @@ class LocalExecutor(Executor):
             "process-group",
             "recovery:attach",
             "rlimit",
+            "compute:cpu",
+            "accounting:wall-cpu-cost",
             *MODULE_PROTOCOL_CAPABILITIES,
             *DEPLOYMENT_PROTOCOL_CAPABILITIES,
         }
@@ -436,8 +443,13 @@ class LocalExecutor(Executor):
 
     def preflight(self) -> list[str]:
         issues = [] if os.name == "posix" else ["POSIX resource limits unavailable"]
-        if unknown := sorted(set(self.limits) - set(_LIMITS) - {"timeoutSeconds"}):
+        if unknown := sorted(
+            set(self.limits) - set(_LIMITS) - {"timeoutSeconds"} - set(_COMPUTE_ACCOUNTING)
+        ):
             issues.append(f"unsupported local resource limits: {', '.join(unknown)}")
+        accelerators = self.limits.get("accelerators")
+        if isinstance(accelerators, dict) and float(accelerators.get("count", 0) or 0) > 0:
+            issues.append("local executor provides no accelerators")
         return issues
 
     def prepare_environment(
@@ -533,7 +545,7 @@ class LocalExecutor(Executor):
         run_dir: Path,
         cwd: Path,
         env: dict[str, str] | None = None,
-        resources: dict[str, int | float] | None = None,
+        resources: dict[str, Any] | None = None,
         timeout: float | None = None,
         deny_network: bool = False,
         requires_result: bool = True,
@@ -546,16 +558,13 @@ class LocalExecutor(Executor):
             if not wrapper:
                 raise RuntimeError("network denial unavailable")
             command = (*wrapper, *command)
+        merged = {**self.limits, **(resources or {})}
         return ExecutionPlan(
             command,
             run_dir,
             cwd,
             env or {},
-            {
-                key: value
-                for key, value in {**self.limits, **(resources or {})}.items()
-                if key in _LIMITS
-            },
+            dict(merged),
             timeout or self.limits.get("timeoutSeconds"),
             deny_network,
             {
